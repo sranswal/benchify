@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">Benchify icon</title>
+  <rect width="64" height="64" rx="14" fill="#18181B"/>
+  <path d="M20 47V16m0 20c0-6 4.5-10 10-10 6.5 0 11 4.5 11 10.5S37 47 31 47H20" transform="translate(1.5)" fill="none" stroke="#FFF" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

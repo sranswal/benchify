@@ -1,0 +1,7 @@
+**
+!requirements.txt
+!benchify/
+!benchify/**
+**/__pycache__/
+**/*.pyc
+**/.env*

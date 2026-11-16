@@ -1,0 +1,20 @@
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+node_modules/
+.next/
+.npm-cache/
+*.tsbuildinfo
+next-env.d.ts
+.benchify/
+
+# Hosting metadata and local recovery artifacts
+.vercel/
+recordings/
+recording.json
+*.recording.json
+*.dump
+*.pgdump
+*.sql.gz

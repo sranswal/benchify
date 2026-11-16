@@ -1,0 +1,30 @@
+{
+  "revision": "northwind-key-rotation-v1",
+  "meeting": {
+    "subject": "Northwind Cloud",
+    "meeting_at": "2025-12-18T14:00:00Z",
+    "purpose": "Evaluate key rotation for service credentials."
+  },
+  "window": ["2025-11-18", "2025-12-18"],
+  "expected": {
+    "statement": "Northwind Cloud launched automatic credential rotation on December 9, 2025.",
+    "development_date": "2025-12-09",
+    "query": "Northwind Cloud automatic credential rotation release"
+  },
+  "sources": [
+    {
+      "url": "https://northwind.example/releases/credential-rotation",
+      "title": "Northwind Cloud release notes",
+      "content": "Northwind Cloud launched automatic credential rotation on December 9, 2025.",
+      "published_date": "2025-12-09",
+      "primary": true
+    },
+    {
+      "url": "https://industry.example/northwind-survey",
+      "title": "Credential rotation survey",
+      "content": "Customers requested more control over service credential rotation.",
+      "published_date": "2025-12-11",
+      "primary": false
+    }
+  ]
+}

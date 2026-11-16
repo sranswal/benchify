@@ -1,0 +1,4 @@
+# The worker hashes fixture bytes on Windows and Linux.
+backend/benchify/meeting-fixture*.json text eol=lf
+# Keep the supplied artwork bytes unchanged.
+frontend/public/brand/*.svg -text
