@@ -4,3 +4,4 @@ backend/benchify/meeting-fixture*.json text eol=lf
 frontend/public/brand/*.svg -text
 deploy/*.sh text eol=lf
 deploy/render/*.sh text eol=lf
+backend/*.sh text eol=lf

@@ -13,9 +13,7 @@ services:
   dockerfilePath: backend/Dockerfile
   healthCheckPath: /ready
   maxShutdownDelaySeconds: 55
-  dockerCommand: /bin/sh -ec 'export BIFROST_BASE_URL="http://${BIFROST_HOST:?}:8080/openai";
-    exec uvicorn benchify.main:app --host 0.0.0.0 --port "${PORT:-10000}" --workers
-    1 --timeout-graceful-shutdown 25 --no-access-log'
+  dockerCommand: /bin/sh /app/start.sh
   envVars:
   - key: BENCHIFY_ENV
     value: production

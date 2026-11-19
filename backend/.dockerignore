@@ -1,5 +1,6 @@
 **
 !requirements.txt
+!start.sh
 !benchify/
 !benchify/**
 **/__pycache__/
