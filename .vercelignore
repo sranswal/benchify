@@ -1,9 +1,8 @@
-# Upload only the frontend source for this monorepo project.
-**
-!frontend/
-!frontend/**
-frontend/node_modules/
-frontend/.next/
-frontend/.vercel/
+# Include the frontend directory while excluding other repository-root content.
+/*
+!frontend
+frontend/node_modules
+frontend/.next
+frontend/.vercel
 frontend/.env*
 frontend/*.tsbuildinfo
