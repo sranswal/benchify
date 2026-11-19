@@ -4,7 +4,7 @@
 
 On November 19, 2026 the operator approved two 0.5c-512mb services and a 1 GiB Bifrost disk, with a $14.25/month base ceiling. No workspace upgrade or larger instance is authorized. Published prices are $7/month per service and $0.25/GiB/month for disk capacity. Compute is prorated. Workspace fees, taxes, build/bandwidth overages and external Neon, Gemini, Tavily and Vercel usage are additional. Review the account estimate before creation. Render credits normally apply to all workspace charges, including compute and storage, unless the specific promotion excludes them. Credits apply at billing-period end, and any shortfall is charged to the workspace payment method. Credit expiry depends on the promotion.
 
-The Render connection was restored and service inventory was inspected in the operator-confirmed My Workspace. The operator confirmed credits are redeemed in that workspace. The connected tools expose no billing balance or expiry. Browser automation failed to initialize, so credit balance, expiry, promotion restrictions, workspace plan fees and actual charges remain unverified. No Benchify services existed in the inspected inventory. Hosted acceptance remains pending.
+Both Render services are live in the operator-confirmed My Workspace and Singapore region. The protected Next.js frontend is live at https://benchify-private.vercel.app, using https://benchify-api-staging.onrender.com as its server-side API origin. The operator confirmed redeemed credits. Balance, expiry, promotion restrictions and actual charges remain unverified because the connected Render tools expose no billing endpoint. Hosted Chrome core acceptance and live browser research checks passed. Earlier live benchmark and research failures remain documented below.
 
 [Pricing](https://render.com/pricing) Â· [Credit terms](https://render.com/docs/credits) Â· [Disk persistence](https://render.com/docs/disks)
 
@@ -15,7 +15,7 @@ The Render connection was restored and service inventory was inspected in the op
 | benchify-bifrost-staging | deploy/render/bifrost.yaml | Docker, pinned Bifrost v2.5.1 base | 0.5 CPU, 512 MiB | 1 GiB at /app/data |
 | benchify-api-staging | render.yaml | Existing Docker backend with pinned Python base | 0.5 CPU, 512 MiB | Durable state in Neon |
 
-Both definitions use the review branch codex/private-hosted-mvp, one instance and manual deploys. Singapore is a proposed staging region because the operator is in India. Confirm it against the existing Neon region before creation and keep both services in the same workspace and region. Region cannot be changed in place. Inspect existing service names before importing a Blueprint because names can match existing resources.
+Both definitions use the review branch codex/private-hosted-mvp, one instance and manual deploys. Both services are deployed in Singapore. The Neon region and staging-branch ownership still need independent confirmation. Keep both Render services in the same workspace and region. Region cannot be changed in place. Inspect existing service names before importing a Blueprint because names can match existing resources.
 
 Render terminates public TLS for the API. The gateway is a private service with no public URL. Next.js stays on Vercel. Render's private network is shared with other services in the same workspace and region, so gateway admin and inference authentication remain required. The starter workspace does not provide a dedicated network boundary for this pair.
 
@@ -129,3 +129,38 @@ DATABASE_URL, TAVILY_API_KEY and BENCHIFY_OPERATOR_TOKEN belong to benchify-api-
 API deploy dep-dbvi70l9el5s739r9nqg became live at source commit d97797c after applying the script-based startup correction. The URL is https://benchify-api-staging.onrender.com. External HTTPS probes returned /health 200, /ready 200 with status ready, anonymous /api/v1/runs/catalog 401, /docs 401 and /openapi.json 401. Runtime logs confirm Uvicorn started on 0.0.0.0:10000 and application startup completed. The readiness response confirms the durable worker has accessed its configured storage. It does not establish isolated branch ownership or completion of a live benchmark.
 
 The corrected image also passed the disposable local Render smoke. Authenticated hosted inference, benchmark, recording, replay, comparison and live Tavily checks remain pending because the operator token is currently available only in Render. The three API secrets were also entered on the gateway by the operator. Remove DATABASE_URL, TAVILY_API_KEY and BENCHIFY_OPERATOR_TOKEN from the gateway Environment page after confirming they exist on the API. Retain its six BIFROST_* values and PORT.
+
+## Hosted acceptance results, November 19, 2026
+
+The Vercel frontend deployment dpl_HNHhAyzK9XtE3GYZmU6CTSzsiVYi is READY at https://benchify-private.vercel.app. The immutable URL is https://benchify-private-fwsmsyupw-sranswal.vercel.app. It was deployed with CLI 65.1.0 from review revision 9ed9679. Project settings remain Next.js, root frontend/, Node.js 24.x, npm ci and npm run build. Vercel Authentication remains enabled, with the Benchify Basic operator gate behind it. Sign in with the authorized Vercel account and use Basic username benchify with the saved operator token.
+
+The CLI refreshed its existing login successfully after direct API requests using the stale token returned 403. Git linking returned a repository write/admin access error. The reviewed source was deployed with the CLI instead. Grant the Vercel GitHub installation access to sranswal/benchify, connect the existing project and select codex/private-hosted-mvp as its production branch before enabling Git deploys. The frontend source-upload allowlist was checked with vercel deploy --dry. All 23 uploaded files were under frontend/, with local environment, dependency and build directories excluded. The first CLI attempt failed because the recursive ignore pattern excluded the frontend directory. The corrected root-only allowlist produced the verified deployment.
+
+| Hosted check | Outcome |
+| --- | --- |
+| API liveness/readiness and anonymous catalog denial | 200 / 200 / 401 |
+| Authorized API and Vercel proxy catalogs | 200, Python agent and both synthetic dataset revisions |
+| Scripted Northwind with baseline, injected 503 and injected 429 | 3/3 passed, persisted |
+| Downloaded benchmark recordings | Complete, anonymous download denied, attachment headers present |
+| Local replay of hosted recordings with HTTP and socket connections blocked | Passed; 5 calls for baseline and 6 for each fault attempt |
+| Hosted replay comparison | No classifications or output/trace differences |
+| First live Northwind baseline | 0/1 passed; captured Bifrost timeout faithfully replayed |
+| First API claim verification | HTTP 502 with a recorded timeout, replay passed |
+| First API historical briefing | HTTP 502 after a recovered 503, successful model/search calls and a later timeout; replay passed |
+| Later hosted Chrome live claim verification | Review returned |
+| Later hosted Chrome historical NASA briefing | One verified finding |
+| Hosted Chrome core exercise | Passed branding, theme, manifest/favicon, agent/dataset catalog, benchmark progress, persistence, refresh, traces, recording download, replay, saved-run comparison, mobile width and branded 404 |
+| Deployed JS secret scan | 9 files, 630293 bytes, no known local credential values found |
+| Vercel runtime error scan | CLI returned zero error records in a ten-minute window; connector aggregate query was denied and the initial one-hour CLI window exceeded account retention |
+
+The browser suite supports BENCHIFY_HOSTED_PROTECTION_BYPASS for protected Vercel deployments. Use an authorized automation credential through the process environment. The test scopes it to the exact web origin, while Basic operator authentication is tested separately. vercel curl successfully established protected access and generated the project's automation access credential without disabling protection. Keep that credential outside source control and rotate it through Vercel's protection settings when required. The suite's Node HTTP probes now send operator credentials explicitly for protected asset requests, while anonymous probes verify the application's Basic challenge.
+
+The live provider failures are correlated with gateway stdout request IDs. Gateway request 580d1913-1048-47ee-b6be-e313019c8aa2 ended as HTTP 499 after 20001 ms when the Benchify deadline expired. Request c69305a7-adb3-4ed8-90e8-0f20f581d73a returned HTTP 503 after 3730 ms. Its retry de993bd2-19cf-4a43-9937-d4d795fa86f1 returned HTTP 200 after 3637 ms. These establish successful private routing, provider authentication and intermittent request failure. They do not establish whether the 503 originated in gateway logic or the upstream provider. Complete provider response diagnostics remain an operational gap.
+
+## Hosted restart evidence and remaining release gates
+
+API redeploy dep-dbvib4l9el5s739rol50 and gateway redeploy dep-dbvibr0n74is739ld9p0 both became live. During these restarts, captured run ed2eee58-f2df-4720-a0fe-9e58ca79ce4d progressed to completed with three distinct attempts and preserved the two prior completed attempt IDs. All three evaluations reported provider timeouts. The earlier 3/3 scripted run remained retrievable. This verifies controlled redeploy recovery and durable checkpoints while preserving failures. It does not verify a hard crash, expired-lease takeover, or managed database restoration in this hosted environment.
+
+Sampled Render metrics from the acceptance window starting 16:33 UTC showed API memory up to approximately 60.2 MiB and Bifrost up to 255 MiB. Peak sampled CPU usage was approximately 0.024 cores for the API and 0.153 cores for Bifrost. Both remain on the approved 0.5 CPU / 512 MiB tiers. This short observation supports initial staging sizing and does not establish capacity under sustained concurrency. Base recurring Render cost remains estimated at $14.25/month plus extras. Other workspace usage also consumes the shared credits.
+
+Remaining work includes independently confirming Neon staging isolation, exercising managed Neon restore and gateway backup restoration on disposable resources, obtaining deeper gateway/upstream diagnostics, verifying authorized dashboard login, checking retention cleanup and disk growth over time, and resolving Git integration permissions. The platform remains a private single-operator MVP. Per-user authentication, tenant isolation and production operational coverage are external-beta gates.

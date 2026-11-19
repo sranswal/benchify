@@ -35,3 +35,7 @@ Bifrost's config seed requires dashboard and inference authentication, keeps req
 ## Render private staging
 
 The gateway is a private service and exposes no public URL. Private networking is shared within the workspace and region. Require dashboard and virtual-key authentication independently. The API uses Render HTTPS and the existing operator gate. Credentials are entered directly into service settings, with only the operator token shared with Vercel. The gateway prepares its data directory before dropping to UID 1000. The disk and its backups contain sensitive encrypted configuration and request metadata. See the [Render runbook](RENDER.md) for rotation and access checks.
+
+## Hosted acceptance evidence
+
+The Vercel deployment retains platform Authentication plus the Benchify Basic operator gate. The Render API requires Bearer operator authentication. Hosted anonymous catalog and recording probes were denied, and authorized proxy/browser flows passed. The Vercel CLI set the operator value as a Secret and the API/public origins as Config. The source-upload dry run contained only frontend files. Nine deployed browser JS files contained none of the known local credential values. Protected browser tests inject platform automation access only for the exact frontend origin. This is a sampled credential check within the private operator model. Tenant isolation and broader security acceptance remain open.

@@ -10,6 +10,8 @@ The Vercel project sranswal/benchify-private has been created. Verified settings
 
 ## Render staging deployment
 
+The private frontend and Render API are live. Hosted Chrome core acceptance and live research browser checks passed on November 19. Controlled redeploys preserved attempts. Provider timeouts remain observable, and managed staging restoration remains open. The current URLs, source revisions, protection-aware browser workflow and operational evidence are in the [Render runbook](RENDER.md).
+
 Oracle account provisioning is blocked. The active staging path uses the [Render runbook](RENDER.md), with separate gateway and API Blueprints, private Bifrost networking and Render HTTPS termination. The operator approved a $14.25/month base configuration. Account credit terms and actual resource usage must be verified before promotion. Next.js remains on Vercel.
 
 ## OCI deployment alternative

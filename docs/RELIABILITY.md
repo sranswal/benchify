@@ -56,3 +56,7 @@ The November 19 deployment publication preserves the earlier 30 passing determin
 ## Render staging checks
 
 The Render container smoke passed using the API Blueprint command and gateway bootstrap at 0.5 CPU and 512 MiB each. Private synthetic inference, anonymous denial, recording, replay comparison and gateway restart recovery passed. The API completed two scripted attempts while the gateway was stopped. UID 1000 and restrictive volume permissions were verified. Real Gemini, Tavily, Neon staging recovery and hosted browser acceptance still require the deployed environment. All 30 backend tests passed. The account-aware Render planner rejected a custom shutdown delay on a disk-backed gateway, so only the API sets that field. Follow the [Render runbook](RENDER.md).
+
+## Hosted Render and Vercel evidence
+
+Hosted scripted Northwind passed 3/3 with injected 429/503 faults. Complete downloaded recordings replayed with HTTP and socket connections blocked, and comparisons reported no differences. The initial live baseline timed out, while subsequent hosted Chrome verification and historical briefing completed. Gateway logs correlate client request IDs with 20-second cancellations, one 503, and successful retries. Controlled API and gateway redeploys preserved checkpoint IDs and completed a three-attempt run whose failures remained visible. Managed Neon restoration, hard-crash lease recovery and deeper upstream diagnostics remain unverified. See the [exact acceptance results](RENDER.md).

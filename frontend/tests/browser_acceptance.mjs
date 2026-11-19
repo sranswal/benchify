@@ -10,6 +10,7 @@ const hostedArg = process.argv.find(arg => arg.startsWith("--hosted="));
 const hosted = hostedArg ? new URL(hostedArg.slice("--hosted=".length)).origin : undefined;
 const hostedExercise = hosted && process.argv.includes("--exercise");
 const hostedToken = hostedExercise ? process.env.BENCHIFY_HOSTED_OPERATOR_TOKEN : undefined;
+const protectionBypass = hostedExercise ? process.env.BENCHIFY_HOSTED_PROTECTION_BYPASS : undefined;
 const wantsLive = process.argv.includes("--live");
 if (hostedExercise && (!hosted.startsWith("https://") || !/^[A-Za-z0-9_-]{32,128}$/.test(hostedToken || ""))) {
   throw new Error("Hosted exercise requires an HTTPS staging origin and BENCHIFY_HOSTED_OPERATOR_TOKEN.");
@@ -97,7 +98,12 @@ try {
   socket.addEventListener("message", event => {
     const message = JSON.parse(event.data);
     if (message.method === "Fetch.requestPaused") {
-      cdp("Fetch.continueRequest", { requestId: message.params.requestId }).catch(() => {});
+      const { requestId, request } = message.params;
+      const headers = Object.entries(request.headers).map(([name, value]) => ({ name, value: String(value) }));
+      if (protectionBypass && new URL(request.url).origin === web) {
+        headers.push({ name: "x-vercel-protection-bypass", value: protectionBypass });
+      }
+      cdp("Fetch.continueRequest", { requestId, headers }).catch(() => {});
       return;
     }
     if (message.method === "Fetch.authRequired") {
@@ -128,6 +134,15 @@ try {
     return value.result.value;
   }
   diagnostic = () => evaluate("JSON.stringify([...document.querySelectorAll('[role=alert], [role=status]')].map(x=>x.innerText))");
+  async function webFetch(path, authenticated = true) {
+    const url = new URL(path, web);
+    const headers = new Headers();
+    if (hostedExercise && url.origin === web) {
+      if (protectionBypass) headers.set("x-vercel-protection-bypass", protectionBypass);
+      if (authenticated) headers.set("Authorization", "Basic " + Buffer.from("benchify:" + hostedToken).toString("base64"));
+    }
+    return fetch(url, { redirect: "manual", headers });
+  }
   async function load(url) {
     await cdp("Page.navigate", { url });
     await until(() => evaluate("location.href === " + JSON.stringify(url) + " && document.readyState === 'complete'"), url);
@@ -181,7 +196,7 @@ try {
   await cdp("Page.enable");
   if (hostedExercise) {
     for (const path of ["/", "/api/runs/catalog", "/api/runs/00000000-0000-0000-0000-000000000000/attempts/00000000-0000-0000-0000-000000000000/recording"]) {
-      const response = await fetch(web + path, { redirect: "manual" });
+      const response = await webFetch(path, false);
       assert.equal(response.status, 401, "Anonymous request to " + path);
       assert.match(response.headers.get("WWW-Authenticate") || "", /Basic.*Benchify/i);
     }
@@ -204,11 +219,11 @@ try {
     await until(() => evaluate("document.querySelector('img[alt=Benchify]')?.naturalWidth === 224"), "brand wordmark");
     await click("Light mode");
     await until(() => evaluate("document.querySelector('.shell').dataset.theme === 'light'"), "theme change");
-    const manifest = await (await fetch(web + "/manifest.webmanifest")).json();
+    const manifest = await (await webFetch("/manifest.webmanifest")).json();
     assert.equal(manifest.icons.length, 2);
     const favicon = await evaluate("document.querySelector('link[rel=icon]')?.href");
     assert.equal(new URL(favicon).origin, web);
-    assert((await fetch(favicon, { redirect: "manual" })).ok);
+    assert((await webFetch(favicon)).ok);
     await click("Benchmarks");
     await until(() => findText("fieldset label", "Built-in Python"), "Python agent in the browser catalog");
     await choice("Research task", "northwind-key-rotation-v1");

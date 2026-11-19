@@ -102,6 +102,6 @@ Private deployments require the same operator token in the web and backend envir
 
 ## Hosted deployment status
 
-The Render staging API is live at https://benchify-api-staging.onrender.com, with a separate private Bifrost gateway. External checks returned readiness HTTP 200 and anonymous catalog HTTP 401. The Vercel benchify-private frontend still needs account reauthentication, proxy configuration and hosted browser acceptance. Authenticated live workflows and isolated staging recovery remain release gates. Follow the [Render deployment runbook](docs/RENDER.md).
+The private frontend is live at [benchify-private.vercel.app](https://benchify-private.vercel.app), backed by the [Render staging API](https://benchify-api-staging.onrender.com/ready) and a private Bifrost gateway. Sign in with the authorized Vercel account, then use Basic username benchify and the saved operator token. Hosted Chrome passed the core benchmark, recording, replay, comparison and responsive workflows. Live browser verification returned a review and one verified historical finding. Earlier live benchmarks and research requests captured intermittent provider timeouts and a recovered 503. Controlled API and gateway redeploys preserved checkpoints. Managed staging restoration and broader reliability validation remain open. Follow the [Render runbook](docs/RENDER.md).
 
 The [OCI ARM64 setup](docs/OCI_VM.md) remains an alternative when account provisioning is available. [Bifrost migration](docs/BIFROST_MIGRATION.md) covers gateway credentials and storage.
