@@ -102,8 +102,6 @@ Private deployments require the same operator token in the web and backend envir
 
 ## Hosted deployment status
 
-The original Vercel URL returned platform HTTP 404. The replacement sranswal/benchify-private project is configured for Next.js. Deployment awaits the approved backend, staging secrets, and an end-to-end hosted check. The [private deployment guide](docs/DEPLOYMENT.md) specifies the Vercel frontend root, the always-on backend, staging secrets, browser acceptance and isolated database recovery. Hosted acceptance and managed Neon recovery remain release gates.
+The Render staging API is live at https://benchify-api-staging.onrender.com, with a separate private Bifrost gateway. External checks returned readiness HTTP 200 and anonymous catalog HTTP 401. The Vercel benchify-private frontend still needs account reauthentication, proxy configuration and hosted browser acceptance. Authenticated live workflows and isolated staging recovery remain release gates. Follow the [Render deployment runbook](docs/RENDER.md).
 
-For the preferred single-VM backend, see [OCI ARM64 setup](docs/OCI_VM.md) and [Bifrost migration](docs/BIFROST_MIGRATION.md). Vercel serves the frontend and proxies authenticated requests to the VM over HTTPS.
-
-The current hosted staging path is documented in the [Render runbook](docs/RENDER.md). It uses a private Bifrost service and an always-on API with the existing Neon worker. Hosting verification and credit coverage remain open.
+The [OCI ARM64 setup](docs/OCI_VM.md) remains an alternative when account provisioning is available. [Bifrost migration](docs/BIFROST_MIGRATION.md) covers gateway credentials and storage.
