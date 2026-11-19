@@ -60,3 +60,5 @@ The Render container smoke passed using the API Blueprint command and gateway bo
 ## Hosted Render and Vercel evidence
 
 Hosted scripted Northwind passed 3/3 with injected 429/503 faults. Complete downloaded recordings replayed with HTTP and socket connections blocked, and comparisons reported no differences. The initial live baseline timed out, while subsequent hosted Chrome verification and historical briefing completed. Gateway logs correlate client request IDs with 20-second cancellations, one 503, and successful retries. Controlled API and gateway redeploys preserved checkpoint IDs and completed a three-attempt run whose failures remained visible. Managed Neon restoration, hard-crash lease recovery and deeper upstream diagnostics remain unverified. See the [exact acceptance results](RENDER.md).
+
+The final deterministic run initially found two API tests inheriting the real operator token newly saved in the local .env. Workflow and replay fixtures now explicitly set development authentication within their test scopes. The suite then passed all 30 tests with the local token still present. Production authentication behavior is unchanged.

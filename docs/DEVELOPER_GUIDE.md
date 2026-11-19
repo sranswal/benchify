@@ -30,3 +30,11 @@ See [replay, retention and comparison](REPLAY_AND_REGRESSION.md) for the version
 Enable the local Node agent with BENCHIFY_ENV=development and BENCHIFY_ALLOW_LOCAL_AGENTS=1. For public endpoints, configure their exact HTTPS origins and a reachable callback origin. Agent registration is operator configuration, so restart to reload changes. The product catalog exposes the resulting agents and dataset revisions.
 
 With an operator token configured, use it as a Bearer credential for direct API and CLI access. For a private web deployment, sign in to the browser challenge as benchify. See [deployment](DEPLOYMENT.md) and [security](SECURITY.md).
+
+## Private hosted staging
+
+The current operator frontend is https://benchify-private.vercel.app. Complete Vercel Authentication, then use Basic username benchify and the existing operator token. The API is https://benchify-api-staging.onrender.com and accepts Bearer authentication with the same token. Configure private provider credentials only on Render.
+
+Hosted Chrome acceptance can use BENCHIFY_HOSTED_OPERATOR_TOKEN and, when Vercel protection requires it, BENCHIFY_HOSTED_PROTECTION_BYPASS supplied through the process environment. Keep both values out of shell arguments and logs. The test scopes automation access to the exact frontend origin. Run node frontend/tests/browser_acceptance.mjs --hosted=https://benchify-private.vercel.app --exercise --live from the repository root. The [Render runbook](RENDER.md) contains the tested outcomes, source revisions, costs and remaining operational gates.
+
+Run deterministic backend tests from backend/ with python -m unittest discover -s tests -q. Workflow and replay tests isolate their operator-auth settings, so the local real token can remain configured. Provider and hosted tests are separate from this suite.

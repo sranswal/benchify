@@ -17,6 +17,11 @@ from benchify.workflows import Answer, Meeting, briefing, verify_answer
 
 
 class ReplayTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        env = patch.dict("os.environ", {"BENCHIFY_ENV": "development", "BENCHIFY_OPERATOR_TOKEN": ""})
+        env.start()
+        self.addCleanup(env.stop)
+
     async def benchmark_recording(self, scenario, *, read_timeout=False, secret=None):
         revision = next(key for key in fixtures() if "northwind" in key)
         task, _ = fixtures()[revision]

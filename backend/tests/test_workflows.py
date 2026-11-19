@@ -14,6 +14,7 @@ from benchify.workflows import Claim, Finding, Meeting, briefing, verify_claim
 class WorkflowTests(unittest.IsolatedAsyncioTestCase):
     async def asyncSetUp(self):
         env = patch.dict(os.environ, {
+            "BENCHIFY_ENV": "development", "BENCHIFY_OPERATOR_TOKEN": "",
             "BIFROST_BASE_URL": "http://gateway.test/openai",
             "BIFROST_MODEL": "openai/test",
             "BIFROST_VIRTUAL_KEY": "test-gateway-token",
