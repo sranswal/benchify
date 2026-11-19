@@ -8,7 +8,11 @@ On November 16, 2026, Vercel returned platform-level `NOT_FOUND` for the app, be
 
 The Vercel project sranswal/benchify-private has been created. Verified settings are Next.js, root directory frontend, Node.js 24.x, npm ci, npm run build, and automatic output directory. Preview and Production both have BENCHIFY_ENV set to production. Vercel deployment protection excludes custom domains, so Benchify's own operator access remains mandatory. The project awaits a Git connection, an approved backend HTTPS origin, the verified frontend origin, and the shared operator token. Establish the new alias from the first Ready deployment. The previous alias still has no verified deployment.
 
-## Preferred OCI deployment
+## Render staging deployment
+
+Oracle account provisioning is blocked. The active staging path uses the [Render runbook](RENDER.md), with separate gateway and API Blueprints, private Bifrost networking and Render HTTPS termination. The operator approved a $14.25/month base configuration. Account credit terms and actual resource usage must be verified before promotion. Next.js remains on Vercel.
+
+## OCI deployment alternative
 
 Follow the [OCI VM instructions](OCI_VM.md) and [Bifrost migration guide](BIFROST_MIGRATION.md). The API and its embedded Neon worker run beside Bifrost on one ARM64 VM. The Compose configuration sets the internal gateway origin to http://bifrost:8080/openai. Caddy serves only Benchify API routes over public HTTPS. The gateway has no published ports. The same Vercel proxy, Neon schema, and private operator boundary apply.
 

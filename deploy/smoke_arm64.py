@@ -46,6 +46,9 @@ from benchify.providers import Providers
 from benchify.workflows import ExcerptCheck
 async def main():
     assert platform.machine() == os.environ["BENCHIFY_TEST_MACHINE"]
+    # Docker exec gets configured container env, independent of PID 1's shell exports.
+    if hostport := os.getenv("BIFROST_HOSTPORT"):
+        os.environ["BIFROST_BASE_URL"] = f"http://{hostport}/openai"
     async with httpx.AsyncClient(timeout=12,trust_env=False) as c:
         assert (await c.get("http://bifrost:8080/health")).is_success
         admin = await c.get("http://bifrost:8080/api/logs")
@@ -119,9 +122,41 @@ def main():
         def compose(*args, capture=False):
             return subprocess.run([*base, *args], env=env, check=True, text=True, capture_output=capture)
 
+        if os.environ.get("BENCHIFY_SMOKE_RENDER") == "1":
+            # Resolve the VM test stack, then replace the gateway with the Render image.
+            # The generated file contains disposable credentials and stays inside TemporaryDirectory.
+            resolved = json.loads(compose("config", "--format", "json", capture=True).stdout)
+            import shlex
+            import yaml
+            blueprint = yaml.safe_load((DEPLOY.parent / "render.yaml").read_text(encoding="utf8"))
+            api = resolved["services"]["benchify-api"]
+            api["command"] = [part.replace("$", "$$") for part in
+                              shlex.split(blueprint["services"][0]["dockerCommand"])]
+            api["environment"]["BIFROST_HOSTPORT"] = "bifrost:8080"
+            api["environment"].pop("BIFROST_BASE_URL", None)
+            gateway = resolved["services"]["bifrost"]
+            gateway.update(image="benchify-bifrost:render", cpus=0.5, mem_limit="512m",
+                           entrypoint=["/bin/sh", "/etc/benchify/render-start.sh"])
+            # Match the bootstrap capabilities supplied by a standard Docker runtime.
+            gateway["cap_add"] = ["CHOWN", "FOWNER", "DAC_OVERRIDE", "SETUID", "SETGID"]
+            gateway["environment"]["GOMEMLIMIT"] = "384MiB"
+            gateway["volumes"] = [
+                {"type": "volume", "source": "bifrost-data", "target": "/app/data"},
+                {"type": "bind", "source": d.joinpath("config.json").as_posix(),
+                 "target": "/etc/benchify/config.json", "read_only": True},
+            ]
+            (d / "render.json").write_text(json.dumps(resolved), encoding="utf8")
+            base = ["docker", "compose", "-p", PROJECT, "-f", str(d / "render.json")]
+
         try:
             compose("up", "--no-build", "-d", "--wait", "--wait-timeout", "240")
             compose("exec", "-T", "benchify-api", "python", "-c", PROBE)
+            if os.environ.get("BENCHIFY_SMOKE_RENDER") == "1":
+                status = compose("exec", "-T", "bifrost", "cat", "/proc/1/status", capture=True).stdout
+                assert "Uid:\t1000\t1000\t1000\t1000" in status
+                permissions = compose("exec", "-T", "bifrost", "stat", "-c", "%a",
+                                      "/app/data", "/app/data/config.json", capture=True).stdout.split()
+                assert permissions == ["700", "600"], permissions
             cert = compose("exec", "-T", "reverse-proxy", "cat",
                            "/data/caddy/pki/authorities/local/root.crt", capture=True).stdout
             host = compose("port", "reverse-proxy", "443", capture=True).stdout.strip().rsplit(":", 1)[1]

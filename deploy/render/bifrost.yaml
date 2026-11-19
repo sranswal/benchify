@@ -1,0 +1,33 @@
+# Provision and validate the gateway before applying the API Blueprint.
+services:
+- type: pserv
+  name: benchify-bifrost-staging
+  runtime: docker
+  repo: https://github.com/sranswal/benchify
+  branch: codex/private-hosted-mvp
+  region: singapore
+  plan: 0.5c-512mb
+  numInstances: 1
+  autoDeployTrigger: 'off'
+  dockerContext: .
+  dockerfilePath: deploy/render/bifrost.Dockerfile
+  maxShutdownDelaySeconds: 45
+  disk:
+    name: bifrost-data
+    mountPath: /app/data
+    sizeGB: 1
+  envVars:
+  - key: PORT
+    value: '8080'
+  - key: BIFROST_ENCRYPTION_KEY
+    sync: false
+  - key: BIFROST_SETUP_TOKEN
+    sync: false
+  - key: BIFROST_ADMIN_USERNAME
+    sync: false
+  - key: BIFROST_ADMIN_PASSWORD
+    sync: false
+  - key: BIFROST_VIRTUAL_KEY
+    sync: false
+  - key: BIFROST_PROVIDER_API_KEY
+    sync: false

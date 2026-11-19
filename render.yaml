@@ -1,0 +1,43 @@
+# Apply after benchify-bifrost-staging is healthy in this workspace and region.
+services:
+- type: web
+  name: benchify-api-staging
+  runtime: docker
+  repo: https://github.com/sranswal/benchify
+  branch: codex/private-hosted-mvp
+  region: singapore
+  plan: 0.5c-512mb
+  numInstances: 1
+  autoDeployTrigger: 'off'
+  dockerContext: backend
+  dockerfilePath: backend/Dockerfile
+  healthCheckPath: /ready
+  maxShutdownDelaySeconds: 55
+  dockerCommand: /bin/sh -ec 'export BIFROST_BASE_URL="http://${BIFROST_HOSTPORT:?}/openai";
+    exec uvicorn benchify.main:app --host 0.0.0.0 --port "${PORT:-10000}" --workers
+    1 --timeout-graceful-shutdown 25 --no-access-log'
+  envVars:
+  - key: BENCHIFY_ENV
+    value: production
+  - key: BENCHIFY_ALLOW_LOCAL_AGENTS
+    value: '0'
+  - key: BENCHIFY_CAPTURE_RETENTION_DAYS
+    value: '7'
+  - key: BIFROST_HOSTPORT
+    fromService:
+      type: pserv
+      name: benchify-bifrost-staging
+      property: hostport
+  - key: BIFROST_VIRTUAL_KEY
+    fromService:
+      type: pserv
+      name: benchify-bifrost-staging
+      envVarKey: BIFROST_VIRTUAL_KEY
+  - key: BIFROST_MODEL
+    value: gemini/gemini-3.1-flash-lite
+  - key: BENCHIFY_OPERATOR_TOKEN
+    sync: false
+  - key: DATABASE_URL
+    sync: false
+  - key: TAVILY_API_KEY
+    sync: false

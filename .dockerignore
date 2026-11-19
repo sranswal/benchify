@@ -1,0 +1,7 @@
+**
+!deploy/
+!deploy/bifrost.config.json
+!deploy/bifrost-start.sh
+!deploy/render/
+!deploy/render/bifrost.Dockerfile
+!deploy/render/bifrost-start.sh

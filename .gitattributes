@@ -3,3 +3,4 @@ backend/benchify/meeting-fixture*.json text eol=lf
 # Keep the supplied artwork bytes unchanged.
 frontend/public/brand/*.svg -text
 deploy/*.sh text eol=lf
+deploy/render/*.sh text eol=lf
