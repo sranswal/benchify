@@ -27,3 +27,5 @@ recording.json
 /deploy/backups/
 config.db
 logs.db
+.vercel
+.env*
