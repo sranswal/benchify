@@ -13,7 +13,7 @@ services:
   dockerfilePath: backend/Dockerfile
   healthCheckPath: /ready
   maxShutdownDelaySeconds: 55
-  dockerCommand: /bin/sh -ec 'export BIFROST_BASE_URL="http://${BIFROST_HOSTPORT:?}/openai";
+  dockerCommand: /bin/sh -ec 'export BIFROST_BASE_URL="http://${BIFROST_HOST:?}:8080/openai";
     exec uvicorn benchify.main:app --host 0.0.0.0 --port "${PORT:-10000}" --workers
     1 --timeout-graceful-shutdown 25 --no-access-log'
   envVars:
@@ -23,11 +23,11 @@ services:
     value: '0'
   - key: BENCHIFY_CAPTURE_RETENTION_DAYS
     value: '7'
-  - key: BIFROST_HOSTPORT
+  - key: BIFROST_HOST
     fromService:
       type: pserv
       name: benchify-bifrost-staging
-      property: hostport
+      property: host
   - key: BIFROST_VIRTUAL_KEY
     fromService:
       type: pserv

@@ -47,8 +47,8 @@ from benchify.workflows import ExcerptCheck
 async def main():
     assert platform.machine() == os.environ["BENCHIFY_TEST_MACHINE"]
     # Docker exec gets configured container env, independent of PID 1's shell exports.
-    if hostport := os.getenv("BIFROST_HOSTPORT"):
-        os.environ["BIFROST_BASE_URL"] = f"http://{hostport}/openai"
+    if host := os.getenv("BIFROST_HOST"):
+        os.environ["BIFROST_BASE_URL"] = f"http://{host}:8080/openai"
     async with httpx.AsyncClient(timeout=12,trust_env=False) as c:
         assert (await c.get("http://bifrost:8080/health")).is_success
         admin = await c.get("http://bifrost:8080/api/logs")
@@ -132,7 +132,7 @@ def main():
             api = resolved["services"]["benchify-api"]
             api["command"] = [part.replace("$", "$$") for part in
                               shlex.split(blueprint["services"][0]["dockerCommand"])]
-            api["environment"]["BIFROST_HOSTPORT"] = "bifrost:8080"
+            api["environment"]["BIFROST_HOST"] = "bifrost"
             api["environment"].pop("BIFROST_BASE_URL", None)
             gateway = resolved["services"]["bifrost"]
             gateway.update(image="benchify-bifrost:render", cpus=0.5, mem_limit="512m",
