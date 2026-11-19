@@ -8,6 +8,36 @@ On November 16, 2026, Vercel returned platform-level `NOT_FOUND` for the app, be
 
 The Vercel project sranswal/benchify-private has been created. Verified settings are Next.js, root directory frontend, Node.js 24.x, npm ci, npm run build, and automatic output directory. Preview and Production both have BENCHIFY_ENV set to production. Vercel deployment protection excludes custom domains, so Benchify's own operator access remains mandatory. The project awaits a Git connection, an approved backend HTTPS origin, the verified frontend origin, and the shared operator token. Establish the new alias from the first Ready deployment. The previous alias still has no verified deployment.
 
+## Preferred OCI deployment
+
+Follow the [OCI VM instructions](OCI_VM.md) and [Bifrost migration guide](BIFROST_MIGRATION.md). The API and its embedded Neon worker run beside Bifrost on one ARM64 VM. The Compose configuration sets the internal gateway origin to http://bifrost:8080/openai. Caddy serves only Benchify API routes over public HTTPS. The gateway has no published ports. The same Vercel proxy, Neon schema, and private operator boundary apply.
+
+Run these probes on the VM before changing any Vercel settings:
+
+    docker compose --env-file deploy/vm.env -f deploy/compose.yaml ps
+    docker compose --env-file deploy/vm.env -f deploy/compose.yaml exec -T benchify-api python - <<'PY'
+    import asyncio, uuid
+    import httpx
+    from benchify.providers import Providers
+    from benchify.workflows import ExcerptCheck
+
+    async def check():
+        async with httpx.AsyncClient(timeout=25, trust_env=False) as client:
+            for url in ("http://127.0.0.1:8000/ready", "http://bifrost:8080/health"):
+                print(url, (await client.get(url)).raise_for_status().status_code)
+            provider = Providers(client, str(uuid.uuid4()))
+            try:
+                await provider.model("Return both fields set to true.", {}, ExcerptCheck)
+            finally:
+                for event in provider.events:
+                    print({key: event.get(key) for key in (
+                        "workflow_id", "client_request_id", "request_id", "status_code", "failure_category",
+                    )})
+    asyncio.run(check())
+    PY
+
+From another network, confirm 8080 and 8000 are unreachable, that HTTPS presents the expected public certificate, and that anonymous catalog access returns 401. The public proxy returns 404 for /health and /ready. Check gateway auth and use the Bifrost dashboard via the documented SSH tunnel. Once the staged backend passes these checks, set the verified HTTPS origin in sranswal/benchify-private and use the same operator token. Keep provider and Neon secrets on the VM. Select a reviewed branch containing the deployment files and run the hosted browser drill below.
+
 ## Production topology
 
 | Component | Placement |
@@ -85,3 +115,11 @@ The production Next.js build passed. Four synthetic server secrets were absent f
 The Docker PostgreSQL drill verified one winner across two concurrent lease claimants, rejected expired and replaced leases, drained an active worker and resumed the next position. The hard-restart smoke recovered a real expired lease and passed all six attempts plus repeat execution. The production API container passed readiness, probe and authorization checks, debug-route removal and SIGTERM shutdown.
 
 A separate Neon logical backup and restore passed using two fresh synthetic-only databases on the configured service. A PostgreSQL 18 client dumped the source and restored it to the isolated destination. Two finished attempts, their events, and recordings matched after restore. Offline replay passed and a restored pending job completed. Only the two new test databases were removed. Managed point-in-time restore to an isolated branch is still outstanding.
+
+## Native ARM64 staging handoff, November 19, 2026
+
+The sanitized VM deployment is on the codex/private-hosted-mvp review branch. OCI provisioning has not started. No OCI CLI profile or VM SSH target was available during this check. Native gateway startup, real inference, public HTTPS, hosted browser acceptance, and the isolated staging recovery drill remain unexecuted. The configured local Vercel login returned HTTP 403 for both the user and project API checks, so current project settings and protection could not be revalidated.
+
+Before provisioning, the operator must authorize tenancy and compartment access, choose a home-region A1 shape with 2 OCPUs, 6 GiB RAM and a 50 GB boot volume, and verify the console Always Free indicator and zero-cost estimate across existing tenancy usage. Regional capacity and the actual estimate remain unverified. Obtain approval for any priced alternative. Supply an approved SSH public key and an API DNS name. Configure credentials directly in the VM secret files using the OCI and migration guides. Keep staging Neon access isolated from application data.
+
+Reauthenticate the Vercel CLI in the sranswal scope or connect the Vercel account. After the backend passes the live staging checks, link the GitHub review branch to benchify-private, configure the server-side proxy variables documented above, verify deployment protection, and run hosted acceptance against the assigned Ready URL. A private Git connection and the HTTPS origin are prerequisites for that deployment. Record gateway and worker restart outcomes, recording replay, managed Neon restoration, and the verified cost estimate in this document before marking the milestone complete.

@@ -1,0 +1,70 @@
+{
+  "$schema": "https://www.getbifrost.ai/schema",
+  "encryption_key": "env.BIFROST_ENCRYPTION_KEY",
+  "setup_token": "env.BIFROST_SETUP_TOKEN",
+  "client": {
+    "enforce_auth_on_inference": true,
+    "allow_direct_keys": false,
+    "enable_logging": true,
+    "disable_content_logging": true,
+    "allow_per_request_content_storage_override": false,
+    "log_retention_days": 7,
+    "initial_pool_size": 100
+  },
+  "config_store": {
+    "enabled": true,
+    "type": "sqlite",
+    "config": {
+      "path": "/app/data/config.db"
+    }
+  },
+  "logs_store": {
+    "enabled": true,
+    "type": "sqlite",
+    "config": {
+      "path": "/app/data/logs.db"
+    }
+  },
+  "providers": {
+    "gemini": {
+      "keys": [
+        {
+          "name": "benchify-gemini",
+          "value": "env.BIFROST_PROVIDER_API_KEY",
+          "models": [
+            "gemini-3.1-flash-lite"
+          ],
+          "weight": 1
+        }
+      ]
+    }
+  },
+  "governance": {
+    "auth_config": {
+      "is_enabled": true,
+      "admin_username": "env.BIFROST_ADMIN_USERNAME",
+      "admin_password": "env.BIFROST_ADMIN_PASSWORD",
+      "disable_auth_on_inference": false
+    },
+    "virtual_keys": [
+      {
+        "id": "vk-benchify-vm",
+        "name": "benchify-vm",
+        "value": "env.BIFROST_VIRTUAL_KEY",
+        "is_active": true,
+        "provider_configs": [
+          {
+            "provider": "gemini",
+            "allowed_models": [
+              "gemini-3.1-flash-lite"
+            ],
+            "key_ids": [
+              "*"
+            ],
+            "weight": 1
+          }
+        ]
+      }
+    ]
+  }
+}

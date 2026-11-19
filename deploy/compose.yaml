@@ -1,0 +1,104 @@
+name: benchify-vm
+
+x-service: &service
+  platform: linux/arm64
+  restart: unless-stopped
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+  logging:
+    driver: local
+    options: {max-size: '10m', max-file: '3'}
+
+services:
+  benchify-api:
+    <<: *service
+    image: ${BENCHIFY_API_IMAGE:-benchify-api:vm}
+    build: ../backend
+    env_file:
+      - path: ${BENCHIFY_SECRETS_DIR:-./secrets}/api.env
+        format: raw
+    environment:
+      BENCHIFY_ENV: production
+      BENCHIFY_ALLOW_LOCAL_AGENTS: '0'
+      BIFROST_BASE_URL: http://bifrost:8080/openai
+      PORT: '8000'
+    networks:
+      gateway: {}
+      edge: {gw_priority: 1}
+    read_only: true
+    tmpfs: [/tmp]
+    cpus: '0.50'
+    mem_limit: 512m
+    pids_limit: 128
+    stop_grace_period: 55s
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/ready', timeout=3).close()"]
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 25s
+
+  bifrost:
+    <<: *service
+    image: ${BIFROST_IMAGE:-maximhq/bifrost:v2.5.1@sha256:5ec9873acaf1687556b6e4dd854b92b539d9debf87a5a683b66338648b84d3c8}
+    env_file:
+      - path: ${BENCHIFY_SECRETS_DIR:-./secrets}/bifrost.env
+        format: raw
+    environment:
+      APP_DIR: /app/data
+      APP_PORT: '8080'
+      APP_HOST: 0.0.0.0
+      LOG_LEVEL: info
+      LOG_STYLE: json
+      GOMEMLIMIT: 640MiB
+    entrypoint: [/bin/sh, /etc/bifrost/check-start.sh]
+    volumes:
+      - bifrost-data:/app/data
+      - ${BIFROST_CONFIG_PATH:-./bifrost.config.json}:/app/data/config.json:ro
+      - ./bifrost-start.sh:/etc/bifrost/check-start.sh:ro
+    networks:
+      gateway: {}
+      provider-egress: {gw_priority: 1}
+    cpus: '1.00'
+    mem_limit: 768m
+    pids_limit: 128
+    stop_grace_period: 35s
+    healthcheck:
+      test: [CMD, wget, -q, -O, /dev/null, 'http://127.0.0.1:8080/health']
+      interval: 15s
+      timeout: 5s
+      retries: 4
+      start_period: 140s
+
+  reverse-proxy:
+    <<: *service
+    image: caddy:2.11.2-alpine@sha256:834468128c7696cec0ceea6172f7d692daf645ae51983ca76e39da54a97c570d
+    cap_add: [NET_BIND_SERVICE]
+    environment:
+      BENCHIFY_API_DOMAIN: ${BENCHIFY_API_DOMAIN:?set the API hostname in deploy/vm.env}
+      ACME_EMAIL: ${ACME_EMAIL:?set the ACME contact in deploy/vm.env}
+    ports:
+      - '${PUBLIC_BIND_IP:-0.0.0.0}:${PUBLIC_HTTP_PORT:-80}:80/tcp'
+      - '${PUBLIC_BIND_IP:-0.0.0.0}:${PUBLIC_HTTPS_PORT:-443}:443/tcp'
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+    networks: [edge]
+    read_only: true
+    tmpfs: [/tmp]
+    cpus: '0.25'
+    mem_limit: 128m
+    pids_limit: 64
+    stop_grace_period: 60s
+
+networks:
+  gateway:
+    internal: true
+  edge:
+  provider-egress:
+
+volumes:
+  bifrost-data:
+  caddy-data:
+  caddy-config:

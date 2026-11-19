@@ -25,3 +25,9 @@ Use an identity provider and secure server-managed sessions. Introduce workspace
 ## Hosted release checks
 
 The production web proxy requires an explicit HTTPS backend origin and does not follow redirects. Keep Neon, Bifrost and Tavily credentials on the API service. The Vercel runtime receives only its server-side operator token and the approved origins. Production disables FastAPI's docs and schema routes. Check anonymous denial for the application, catalog and recordings. Verify the public bundle contains no secret values and use the production container's authenticated probes to confirm the debug routes return 404. Treat platform deployment logs and control-plane access as private. See [hosted configuration and validation](DEPLOYMENT.md).
+
+## OCI co-hosting
+
+The Compose stack publishes only the reverse proxy on TCP 80 and 443. The proxy shares an edge network with FastAPI. The API and gateway communicate on a separate internal network, and the gateway has a separate provider-egress bridge. Gateway port 8080, FastAPI port 8000, probes, and the dashboard have no public proxy route. Use the OCI NSG/security list and an administrator-only SSH tunnel for management.
+
+Bifrost's config seed requires dashboard and inference authentication, keeps request metadata and resolves credentials from runtime environment references. Protect the stable encryption key, setup token, provider key and admin password in a restricted host secret directory. Docker administrators can inspect the container environment. Limit Docker access and keep secret files, volume archives and database backups outside Git. Verify the deployed listeners and live auth behavior before connecting Vercel.

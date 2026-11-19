@@ -18,3 +18,12 @@ recording.json
 *.dump
 *.pgdump
 *.sql.gz
+
+# VM-only credentials and gateway data
+/deploy/secrets/
+/deploy/vm.env
+*.db-wal
+*.db-shm
+/deploy/backups/
+config.db
+logs.db

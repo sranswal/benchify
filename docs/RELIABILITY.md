@@ -48,3 +48,7 @@ Run the [isolated recovery exercise](DEPLOYMENT.md) before release. It uses a fr
 The isolated PostgreSQL recovery drill verified that exactly one concurrent claimant received a reclaimed lease. A separate hard restart resumed after a real 120-second lease. The Neon logical restore copied two completed synthetic attempts and their recordings, then replayed them and executed the restored pending job. Managed Neon point-in-time recovery still needs control-plane access to an isolated staging branch.
 
 In this milestone's credentialed loopback check, claim verification returned HTTP 200 and one review. Tavily returned HTTP 200 and a Bifrost 503 recovered on retry. The historical briefing returned a visible HTTP 502 after Bifrost 503 responses, with workflow ID e1850412-232e-4704-bd36-c122a8d201fb. The trace preserved failures and cancellations. These were direct loopback checks, and the 503 source still requires gateway and upstream logs.
+
+## Native staging release gate
+
+The November 19 deployment publication preserves the earlier 30 passing deterministic tests and local AMD64 Compose smoke. ARM64 API readiness passed under emulation, while Bifrost stopped progressing at model-catalog initialization within the test window. Native A1 startup and authenticated inference still require an approved VM. Repeat gateway persistence, lease recovery and managed Neon restoration in isolated staging. Current cloud cost, native resource use, public TLS and hosted acceptance remain unverified. See the [staging handoff](DEPLOYMENT.md).

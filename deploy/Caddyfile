@@ -1,0 +1,23 @@
+{
+	admin off
+	skip_install_trust
+	email {$ACME_EMAIL}
+}
+
+{$BENCHIFY_API_DOMAIN} {
+	handle /api/v1/* {
+		request_body {
+			max_size 512KB
+		}
+		reverse_proxy benchify-api:8000 {
+			transport http {
+				dial_timeout 5s
+				response_header_timeout 100s
+			}
+		}
+	}
+
+	handle {
+		respond 404
+	}
+}

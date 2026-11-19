@@ -103,3 +103,5 @@ Private deployments require the same operator token in the web and backend envir
 ## Hosted deployment status
 
 The original Vercel URL returned platform HTTP 404. The replacement sranswal/benchify-private project is configured for Next.js. Deployment awaits the approved backend, staging secrets, and an end-to-end hosted check. The [private deployment guide](docs/DEPLOYMENT.md) specifies the Vercel frontend root, the always-on backend, staging secrets, browser acceptance and isolated database recovery. Hosted acceptance and managed Neon recovery remain release gates.
+
+For the preferred single-VM backend, see [OCI ARM64 setup](docs/OCI_VM.md) and [Bifrost migration](docs/BIFROST_MIGRATION.md). Vercel serves the frontend and proxies authenticated requests to the VM over HTTPS.
