@@ -52,3 +52,7 @@ In this milestone's credentialed loopback check, claim verification returned HTT
 ## Native staging release gate
 
 The November 19 deployment publication preserves the earlier 30 passing deterministic tests and local AMD64 Compose smoke. ARM64 API readiness passed under emulation, while Bifrost stopped progressing at model-catalog initialization within the test window. Native A1 startup and authenticated inference still require an approved VM. Repeat gateway persistence, lease recovery and managed Neon restoration in isolated staging. Current cloud cost, native resource use, public TLS and hosted acceptance remain unverified. See the [staging handoff](DEPLOYMENT.md).
+
+## Render staging checks
+
+The Render container smoke passed using the API Blueprint command and gateway bootstrap at 0.5 CPU and 512 MiB each. Private synthetic inference, anonymous denial, recording, replay comparison and gateway restart recovery passed. The API completed two scripted attempts while the gateway was stopped. UID 1000 and restrictive volume permissions were verified. Real Gemini, Tavily, Neon staging recovery and hosted browser acceptance still require the deployed environment. All 30 backend tests passed. The account-aware Render planner rejected a custom shutdown delay on a disk-backed gateway, so only the API sets that field. Follow the [Render runbook](RENDER.md).

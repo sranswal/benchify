@@ -11,7 +11,6 @@ services:
   autoDeployTrigger: 'off'
   dockerContext: .
   dockerfilePath: deploy/render/bifrost.Dockerfile
-  maxShutdownDelaySeconds: 45
   disk:
     name: bifrost-data
     mountPath: /app/data

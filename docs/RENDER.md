@@ -54,7 +54,7 @@ After gateway health and auth checks, import the root render.yaml as a second Bl
 
 Set DATABASE_URL to an isolated Neon staging DSN with TLS, TAVILY_API_KEY to the approved server credential, and BENCHIFY_OPERATOR_TOKEN to a random URL-safe 32â€“128 character value. Copy the same operator token into Vercel's server-side configuration. BENCHIFY_ENV=production disables API docs. BENCHIFY_ALLOW_LOCAL_AGENTS=0 keeps outbound-agent protections enabled. Recording retention is seven days. The API readiness route checks worker storage access. Render uses /ready for public-service health, and /health returns only liveness. These routes intentionally disclose minimal status without credentials.
 
-The API has a 55-second Render shutdown allowance, a 25-second Uvicorn graceful timeout and a 20-second worker drain. The gateway has a 45-second platform allowance. Maintain one API instance during initial staging. Render may briefly overlap instances during deploys, so Neon lease fencing remains necessary. A disk-backed gateway has deployment downtime and cannot scale across multiple instances with this SQLite volume.
+The API has a 55-second Render shutdown allowance, a 25-second Uvicorn graceful timeout and a 20-second worker drain. Render rejects a custom shutdown delay for a service with a disk. The gateway uses the platform default and its termination behavior must be verified in staging. Maintain one API instance during initial staging. Render may briefly overlap instances during deploys, so Neon lease fencing remains necessary. A disk-backed gateway has deployment downtime and cannot scale across multiple instances with this SQLite volume.
 
 ## Live acceptance and Vercel
 
@@ -97,3 +97,5 @@ This local check uses synthetic Gemini, isolated PostgreSQL and local TLS, exerc
 ## Executed local checks, November 19, 2026
 
 Both Blueprints passed the current public Render JSON Schema. Both AMD64 Docker images built successfully. The Render smoke passed at 0.5 CPU and 512 MiB for each service. It verified the Blueprint API command, Bifrost UID 1000 and 700/600 data-directory/config permissions, anonymous denial, synthetic authenticated inference, queue execution while the gateway was stopped, full recording download, replay comparison and inference after restart. The final resource snapshot was 49.27 MiB for FastAPI and 286.5 MiB for Bifrost. These are local observations with synthetic traffic. Real Render startup peaks and provider traffic remain unmeasured. All 30 deterministic backend tests passed.
+
+The first account-aware gateway plan rejected maxShutdownDelaySeconds because it is unsupported for disk-backed services. The gateway Blueprint removes that field, while the disk-free API retains its 55-second setting. Public schema validation alone did not catch this platform rule.
