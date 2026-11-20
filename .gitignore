@@ -18,6 +18,7 @@ recording.json
 *.dump
 *.pgdump
 *.sql.gz
+*.mp4
 
 # VM-only credentials and gateway data
 /deploy/secrets/
