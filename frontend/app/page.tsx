@@ -539,33 +539,29 @@ console.log("Run Created:", run.id);`;
                 {/* Console Tabs */}
                 <div className="flex items-center gap-1 bg-[var(--surface-dim)] p-1 rounded-lg border border-[var(--surface-border)] font-mono text-xs">
                   <button
-                    className={`px-3 py-1.5 rounded transition-all ${
-                      heroTab === "chaos" ? "bg-[var(--surface-base)] text-[var(--text-main)] font-semibold shadow-sm" : "text-[var(--text-muted)] hover:text-[var(--text-main)]"
-                    }`}
+                    className={`px-3 py-1.5 rounded transition-all ${heroTab === "chaos" ? "bg-[var(--surface-base)] text-[var(--text-main)] font-semibold shadow-sm" : "text-[var(--text-muted)] hover:text-[var(--text-main)]"
+                      }`}
                     onClick={() => setHeroTab("chaos")}
                   >
                     Chaos Simulation
                   </button>
                   <button
-                    className={`px-3 py-1.5 rounded transition-all ${
-                      heroTab === "freshness" ? "bg-[var(--surface-base)] text-[var(--text-main)] font-semibold shadow-sm" : "text-[var(--text-muted)] hover:text-[var(--text-main)]"
-                    }`}
+                    className={`px-3 py-1.5 rounded transition-all ${heroTab === "freshness" ? "bg-[var(--surface-base)] text-[var(--text-main)] font-semibold shadow-sm" : "text-[var(--text-muted)] hover:text-[var(--text-main)]"
+                      }`}
                     onClick={() => setHeroTab("freshness")}
                   >
                     Tavily Freshness
                   </button>
                   <button
-                    className={`px-3 py-1.5 rounded transition-all ${
-                      heroTab === "briefing" ? "bg-[var(--surface-base)] text-[var(--text-main)] font-semibold shadow-sm" : "text-[var(--text-muted)] hover:text-[var(--text-main)]"
-                    }`}
+                    className={`px-3 py-1.5 rounded transition-all ${heroTab === "briefing" ? "bg-[var(--surface-base)] text-[var(--text-main)] font-semibold shadow-sm" : "text-[var(--text-muted)] hover:text-[var(--text-main)]"
+                      }`}
                     onClick={() => setHeroTab("briefing")}
                   >
                     Executive Dossier
                   </button>
                   <button
-                    className={`px-3 py-1.5 rounded transition-all ${
-                      heroTab === "sdk" ? "bg-[var(--surface-base)] text-[var(--text-main)] font-semibold shadow-sm" : "text-[var(--text-muted)] hover:text-[var(--text-main)]"
-                    }`}
+                    className={`px-3 py-1.5 rounded transition-all ${heroTab === "sdk" ? "bg-[var(--surface-base)] text-[var(--text-main)] font-semibold shadow-sm" : "text-[var(--text-muted)] hover:text-[var(--text-main)]"
+                      }`}
                     onClick={() => setHeroTab("sdk")}
                   >
                     cURL / SDK
@@ -585,41 +581,37 @@ console.log("Run Created:", run.id);`;
 
                     <div className="flex flex-wrap gap-1.5">
                       <button
-                        className={`px-3 py-1.5 rounded text-xs font-mono transition-all ${
-                          heroFault === "503"
+                        className={`px-3 py-1.5 rounded text-xs font-mono transition-all ${heroFault === "503"
                             ? "bg-rose-500/20 text-rose-500 dark:text-rose-300 font-bold border border-rose-500/40"
                             : "bg-[var(--surface-base)] text-[var(--text-muted)] hover:text-[var(--text-main)] border border-[var(--surface-border)]"
-                        }`}
+                          }`}
                         onClick={() => setHeroFault("503")}
                       >
                         HTTP 503 Outage
                       </button>
                       <button
-                        className={`px-3 py-1.5 rounded text-xs font-mono transition-all ${
-                          heroFault === "429"
+                        className={`px-3 py-1.5 rounded text-xs font-mono transition-all ${heroFault === "429"
                             ? "bg-amber-500/20 text-amber-500 dark:text-amber-300 font-bold border border-amber-500/40"
                             : "bg-[var(--surface-base)] text-[var(--text-muted)] hover:text-[var(--text-main)] border border-[var(--surface-border)]"
-                        }`}
+                          }`}
                         onClick={() => setHeroFault("429")}
                       >
                         HTTP 429 Throttle
                       </button>
                       <button
-                        className={`px-3 py-1.5 rounded text-xs font-mono transition-all ${
-                          heroFault === "jitter"
+                        className={`px-3 py-1.5 rounded text-xs font-mono transition-all ${heroFault === "jitter"
                             ? "bg-indigo-500/20 text-indigo-500 dark:text-indigo-300 font-bold border border-indigo-500/40"
                             : "bg-[var(--surface-base)] text-[var(--text-muted)] hover:text-[var(--text-main)] border border-[var(--surface-border)]"
-                        }`}
+                          }`}
                         onClick={() => setHeroFault("jitter")}
                       >
                         +2,500ms Jitter
                       </button>
                       <button
-                        className={`px-3 py-1.5 rounded text-xs font-mono transition-all ${
-                          heroFault === "nominal"
+                        className={`px-3 py-1.5 rounded text-xs font-mono transition-all ${heroFault === "nominal"
                             ? "bg-emerald-500/20 text-emerald-500 dark:text-emerald-300 font-bold border border-emerald-500/40"
                             : "bg-[var(--surface-base)] text-[var(--text-muted)] hover:text-[var(--text-main)] border border-[var(--surface-border)]"
-                        }`}
+                          }`}
                         onClick={() => setHeroFault("nominal")}
                       >
                         Nominal Baseline
@@ -631,15 +623,14 @@ console.log("Run Created:", run.id);`;
                   <div className="p-3.5 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] flex flex-col sm:flex-row sm:items-center justify-between gap-2 font-mono text-xs">
                     <div className="flex items-center gap-2">
                       <IconAlertTriangle
-                        className={`w-4 h-4 ${
-                          heroFault === "503"
+                        className={`w-4 h-4 ${heroFault === "503"
                             ? "text-rose-500"
                             : heroFault === "429"
-                            ? "text-amber-500"
-                            : heroFault === "jitter"
-                            ? "text-indigo-500"
-                            : "text-emerald-500"
-                        }`}
+                              ? "text-amber-500"
+                              : heroFault === "jitter"
+                                ? "text-indigo-500"
+                                : "text-emerald-500"
+                          }`}
                       />
                       <span className="font-semibold text-[var(--text-main)]">
                         {heroFault === "503" && "[FAULT INJECTED: HTTP 503 Service Unavailable (Tavily Search Node)]"}
@@ -1079,7 +1070,7 @@ console.log("Run Created:", run.id);`;
                       Target Meeting Scenario
                     </div>
                     <div className="text-sm font-bold text-[var(--text-main)]">
-                      Orchard Systems Corp — Q4 Partnership & Expansion
+                      Orchard Systems Corp - Q4 Partnership & Expansion
                     </div>
                     <div className="text-xs text-[var(--text-muted)]">
                       Window: October 25 to November 24, 2026 (Strict 30-Day Bounded Temporal Range)
@@ -1245,7 +1236,7 @@ console.log("Run Created:", run.id);`;
                     <div className="p-4 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] space-y-2">
                       <div className="text-[var(--text-muted)] font-bold">1. Clone Repository & Setup Virtual Environment</div>
                       <pre className="text-emerald-500 leading-relaxed">
-{`git clone https://github.com/sranswal/benchify.git
+                        {`git clone https://github.com/sranswal/benchify.git
 cd benchify
 python -m venv .venv
 # On Windows:
@@ -1258,7 +1249,7 @@ source .venv/bin/activate && pip install -r backend/requirements.txt`}
                     <div className="p-4 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] space-y-2">
                       <div className="text-[var(--text-muted)] font-bold">2. Run Deterministic Benchmark Suite (Scripted Mode)</div>
                       <pre className="text-[var(--text-main)] leading-relaxed">
-{`# In PowerShell:
+                        {`# In PowerShell:
 $env:PYTHONPATH = "backend"
 python -m benchify.benchmark_cli --repetitions 3 --model-mode scripted
 
@@ -1270,7 +1261,7 @@ PYTHONPATH=backend python -m benchify.benchmark_cli --repetitions 3 --model-mode
                     <div className="p-4 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] space-y-2">
                       <div className="text-[var(--text-muted)] font-bold">3. Run Provider Contract & Workflow Regression Suite</div>
                       <pre className="text-[var(--text-main)] leading-relaxed">
-{`python -m unittest discover -s backend/tests -v`}
+                        {`python -m unittest discover -s backend/tests -v`}
                       </pre>
                     </div>
                   </div>
@@ -1294,7 +1285,7 @@ PYTHONPATH=backend python -m benchify.benchmark_cli --repetitions 3 --model-mode
                   <div className="p-4 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] space-y-2">
                     <div className="text-[var(--text-muted)] font-bold">Request Payload Schema</div>
                     <pre className="text-[var(--text-main)] leading-relaxed">
-{`{
+                      {`{
   "task_revision": "meeting-research-v1", // versioned synthetic task
   "agents": ["python", "http"],           // target agents to benchmark
   "scenarios": [
@@ -1311,9 +1302,9 @@ PYTHONPATH=backend python -m benchify.benchmark_cli --repetitions 3 --model-mode
                   <div className="p-4 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] space-y-2">
                     <div className="text-[var(--text-muted)] font-bold">Additional Live Endpoints</div>
                     <ul className="space-y-1 text-xs font-mono text-[var(--text-muted)]">
-                      <li>• <code className="text-[var(--text-main)]">POST /api/v1/verify</code> — Atomic claim freshness check against live Tavily evidence</li>
-                      <li>• <code className="text-[var(--text-main)]">POST /api/v1/briefings</code> — Pre-meeting executive research briefing generation</li>
-                      <li>• <code className="text-[var(--text-main)]">GET /api/v1/runs/:id</code> — Fetch complete run telemetry, attempt traces, and recordings</li>
+                      <li>• <code className="text-[var(--text-main)]">POST /api/v1/verify</code> - Atomic claim freshness check against live Tavily evidence</li>
+                      <li>• <code className="text-[var(--text-main)]">POST /api/v1/briefings</code> - Pre-meeting executive research briefing generation</li>
+                      <li>• <code className="text-[var(--text-main)]">GET /api/v1/runs/:id</code> - Fetch complete run telemetry, attempt traces, and recordings</li>
                     </ul>
                   </div>
                 </div>
@@ -1328,7 +1319,7 @@ PYTHONPATH=backend python -m benchify.benchmark_cli --repetitions 3 --model-mode
                       className="btn-secondary-zinc px-3 py-1 text-xs"
                       onClick={() =>
                         copyCodeSnippet(
-`name: Benchify CI
+                          `name: Benchify CI
 on: [push, pull_request]
 
 jobs:
@@ -1359,7 +1350,7 @@ jobs:
                   </div>
 
                   <pre className="p-4 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] text-[var(--text-main)] overflow-x-auto leading-relaxed">
-{`name: Benchify CI
+                    {`name: Benchify CI
 on: [push, pull_request]
 
 jobs:
@@ -1394,7 +1385,7 @@ jobs:
                   <div className="p-4 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] space-y-2">
                     <div className="text-[var(--text-muted)] font-bold">Input Payload Sent by Benchify to Your Agent:</div>
                     <pre className="text-[var(--text-main)] leading-relaxed">
-{`{
+                      {`{
   "meeting": {
     "subject": "Orchard Systems Corp",
     "meeting_at": "2026-11-24T14:30:00Z",
@@ -1409,7 +1400,7 @@ jobs:
                   <div className="p-4 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] space-y-2">
                     <div className="text-[var(--text-muted)] font-bold">Output Response Expected from Your Agent:</div>
                     <pre className="text-emerald-500 leading-relaxed">
-{`{
+                      {`{
   "findings": [
     {
       "claim": "Orchard Systems appointed Dr. Aris Thorne as Chief Scientific Officer on October 14, 2026.",
@@ -1502,7 +1493,7 @@ jobs:
                     <div className="flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
                       <h3 className="font-bold text-sm text-[var(--text-main)]">
-                        Quick Onboarding Guide — Step {tourStep} of 3
+                        Quick Onboarding Guide - Step {tourStep} of 3
                       </h3>
                     </div>
                     <button
@@ -1605,7 +1596,7 @@ jobs:
               </div>
             )}
 
-            <Benchmark onRunSelect={() => setCurrentStep("reports")} />
+            <Benchmark onViewReports={() => setCurrentStep("reports")} />
           </div>
         )}
 
@@ -1625,7 +1616,7 @@ jobs:
                 </button>
                 <div className="flex items-center gap-3">
                   <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-[var(--text-main)]">
-                    {activeDossier.meeting?.subject || "Orchard Systems"} — Intelligence Dossier
+                    {activeDossier.meeting?.subject || "Orchard Systems"} - Intelligence Dossier
                   </h1>
                   <span className="px-2.5 py-1 rounded text-xs font-mono bg-emerald-500/20 text-emerald-500 dark:text-emerald-300 font-bold border border-emerald-500/30">
                     CERTIFIED RELIABLE
@@ -1831,7 +1822,7 @@ jobs:
                           <span className="px-1.5 py-0.5 rounded text-[10px] bg-rose-500/20 text-rose-500 font-bold">
                             503 ERROR
                           </span>
-                          <span className="text-[var(--text-main)] font-semibold">Tavily Search API — Injected Chaos</span>
+                          <span className="text-[var(--text-main)] font-semibold">Tavily Search API - Injected Chaos</span>
                         </div>
                         <span className="text-[var(--text-muted)] text-[11px]">Offset: 0ms • Elapsed: 18ms</span>
                       </div>

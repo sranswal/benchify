@@ -8,7 +8,7 @@ const socialImage = { url: "/brand/social.png", width: 1200, height: 630, alt: "
 
 export const metadata: Metadata = {
   metadataBase: publicOrigin(),
-  title: "Benchify — AI Agent Reliability & Intelligence Platform",
+  title: "Benchify - AI Agent Reliability & Intelligence Platform",
   description,
   icons: {
     icon: { url: "/brand/benchify-icon.svg", type: "image/svg+xml" },

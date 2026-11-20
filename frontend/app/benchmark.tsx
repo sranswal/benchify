@@ -48,8 +48,10 @@ type Regression = {
   classifications: string[]; incompatible_conditions: string[];
   configuration: Record<string, { previous: unknown; current: unknown }>;
   success: { baseline: { passed: number; total: number }; candidate: { passed: number; total: number } };
-  attempts: { agent: Agent; scenario: Scenario; repetition: number; classifications: string[];
-    claims: ClaimChange[]; telemetry: { delta: Record<string, number | null> } }[];
+  attempts: {
+    agent: Agent; scenario: Scenario; repetition: number; classifications: string[];
+    claims: ClaimChange[]; telemetry: { delta: Record<string, number | null> }
+  }[];
 };
 type Catalog = {
   tasks: { revision: string; subject: string; kind: string }[];
@@ -83,7 +85,7 @@ function downloadJson(data: unknown, fileName: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export default function Benchmark({ onRunSelect }: { onRunSelect?: (runId: string) => void }) {
+export default function Benchmark({ onViewReports }: { onViewReports?: (runId?: string) => void }) {
   const [catalog, setCatalog] = useState<Catalog | null>(null);
   const [catalogError, setCatalogError] = useState<string | null>(null);
   const [runs, setRuns] = useState<RunSummary[]>([]);
@@ -141,7 +143,6 @@ export default function Benchmark({ onRunSelect }: { onRunSelect?: (runId: strin
     setLoadingRun(true);
     setRunError(null);
     setRegression(null);
-    if (onRunSelect) onRunSelect(id);
     try {
       const data = await request<Run>("/" + id);
       setRun(data);
@@ -389,7 +390,7 @@ app.listen(8001, () => console.log("Agent running on :8001"));`}
                     <input
                       type="checkbox"
                       checked={selectedAgents.includes("python")}
-                      onChange={() => {}}
+                      onChange={() => { }}
                       className="rounded bg-slate-900 border-cyan-500 text-cyan-500"
                     />
                     <div>
@@ -422,7 +423,7 @@ app.listen(8001, () => console.log("Agent running on :8001"));`}
                     <input
                       type="checkbox"
                       checked={selectedAgents.includes("http")}
-                      onChange={() => {}}
+                      onChange={() => { }}
                       className="rounded bg-slate-900 border-cyan-500 text-cyan-500"
                     />
                     <div>
@@ -632,7 +633,7 @@ app.listen(8001, () => console.log("Agent running on :8001"));`}
                   </span>
                 </div>
                 <h1 className="text-lg font-bold text-white mt-1">
-                  {run?.meeting?.subject || "Orchard Systems Q3 Financial"} — Chaos Telemetry Dossier
+                  {run?.meeting?.subject || "Orchard Systems Q3 Financial"} - Chaos Telemetry Dossier
                 </h1>
               </div>
 
@@ -660,6 +661,16 @@ app.listen(8001, () => console.log("Agent running on :8001"));`}
                 >
                   {comparing ? "Comparing..." : "Regression Diff"}
                 </button>
+                {onViewReports && (
+                  <button
+                    type="button"
+                    className="btn-primary-white py-1.5 px-3 text-xs flex items-center gap-1.5 shadow-sm"
+                    onClick={() => onViewReports(run?.id)}
+                  >
+                    <span>View Certified Dossier (PS05/PS06)</span>
+                    <span className="text-[10px]">→</span>
+                  </button>
+                )}
               </div>
             </div>
 
