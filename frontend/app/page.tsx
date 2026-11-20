@@ -288,39 +288,44 @@ export default function Home() {
 
   const pythonSnippet = `import httpx
 
-# Route your agent's search and LLM calls through Benchify Bifrost Gateway
+# Submit a benchmark run to Benchify API
 response = httpx.post(
-    "https://api.benchify.dev/v1/gateway/search",
-    headers={"Authorization": "Bearer benchify_live_token"},
+    "https://try-benchify.vercel.app/api/runs",
+    headers={"Content-Type": "application/json"},
     json={
-        "query": "Orchard Systems executive appointments 2026",
-        "temporal_window_days": 30,
-        "chaos_profile": "resilient_eval" # Injects 503/429 faults in CI
+        "task_revision": "meeting-research-v1",
+        "agents": ["python", "http"],
+        "scenarios": ["baseline", "first_search_503"],
+        "repetitions": 3,
+        "model_mode": "scripted" # or "gateway" for live LLM routing
     }
 )
-results = response.json()
-print("Grounded findings:", results["findings"])`;
+run = response.json()
+print("Launched Benchmark Run ID:", run.get("id"))`;
 
-  const tsSnippet = `import { BenchifyGateway } from "@benchify/sdk";
-
-const gateway = new BenchifyGateway({
-  apiKey: process.env.BENCHIFY_API_KEY,
-  chaosProfile: "resilient_eval" // Test retry budgets under HTTP 503/429
+  const tsSnippet = `// Submit a benchmark run via Fetch API
+const response = await fetch("https://try-benchify.vercel.app/api/runs", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({
+    task_revision: "meeting-research-v1",
+    agents: ["python", "http"],
+    scenarios: ["baseline", "first_search_503", "first_search_429"],
+    repetitions: 3,
+    model_mode: "scripted"
+  })
 });
+const run = await response.json();
+console.log("Run Created:", run.id);`;
 
-const results = await gateway.search({
-  query: "Orchard Systems Q3 Financials",
-  windowDays: 30
-});
-console.log("Verified claims:", results.claims);`;
-
-  const curlSnippet = `curl -X POST https://api.benchify.dev/v1/gateway/search \\
-  -H "Authorization: Bearer benchify_live_token" \\
+  const curlSnippet = `curl -X POST https://try-benchify.vercel.app/api/runs \\
   -H "Content-Type: application/json" \\
   -d '{
-    "query": "Orchard Systems CSO appointment",
-    "temporal_window_days": 30,
-    "chaos_profile": "resilient_eval"
+    "task_revision": "meeting-research-v1",
+    "agents": ["python", "http"],
+    "scenarios": ["baseline", "first_search_503", "first_search_429"],
+    "repetitions": 3,
+    "model_mode": "scripted"
   }'`;
 
   return (
@@ -1234,22 +1239,39 @@ console.log("Verified claims:", results.claims);`;
               {docTab === "quickstart" && (
                 <div className="space-y-4">
                   <h3 className="text-sm font-bold text-[var(--text-main)] font-mono">
-                    3-Step Local Quickstart
+                    3-Step Local Quickstart (Open Source Python & Node.js)
                   </h3>
                   <div className="space-y-3 font-mono text-xs">
                     <div className="p-4 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] space-y-2">
-                      <div className="text-[var(--text-muted)] font-bold">1. Install Benchify Harness CLI</div>
-                      <pre className="text-emerald-500">npm install -g benchify-cli</pre>
+                      <div className="text-[var(--text-muted)] font-bold">1. Clone Repository & Setup Virtual Environment</div>
+                      <pre className="text-emerald-500 leading-relaxed">
+{`git clone https://github.com/sranswal/benchify.git
+cd benchify
+python -m venv .venv
+# On Windows:
+.venv\\Scripts\\pip.exe install -r backend/requirements.txt
+# On Linux/macOS:
+source .venv/bin/activate && pip install -r backend/requirements.txt`}
+                      </pre>
                     </div>
 
                     <div className="p-4 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] space-y-2">
-                      <div className="text-[var(--text-muted)] font-bold">2. Run Local Benchmark against Your Agent</div>
-                      <pre className="text-[var(--text-main)]">benchify run --agent http://localhost:8001/execute --scenarios 503,429 --reps 3</pre>
+                      <div className="text-[var(--text-muted)] font-bold">2. Run Deterministic Benchmark Suite (Scripted Mode)</div>
+                      <pre className="text-[var(--text-main)] leading-relaxed">
+{`# In PowerShell:
+$env:PYTHONPATH = "backend"
+python -m benchify.benchmark_cli --repetitions 3 --model-mode scripted
+
+# In Bash:
+PYTHONPATH=backend python -m benchify.benchmark_cli --repetitions 3 --model-mode scripted`}
+                      </pre>
                     </div>
 
                     <div className="p-4 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] space-y-2">
-                      <div className="text-[var(--text-muted)] font-bold">3. Inspect Certified Telemetry Dossier</div>
-                      <pre className="text-[var(--text-main)]">benchify report --run latest --format json,markdown</pre>
+                      <div className="text-[var(--text-muted)] font-bold">3. Run Provider Contract & Workflow Regression Suite</div>
+                      <pre className="text-[var(--text-main)] leading-relaxed">
+{`python -m unittest discover -s backend/tests -v`}
+                      </pre>
                     </div>
                   </div>
                 </div>
@@ -1261,10 +1283,11 @@ console.log("Verified claims:", results.claims);`;
                   <div className="p-4 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] space-y-2">
                     <div className="flex items-center gap-2">
                       <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-500 font-bold">POST</span>
-                      <span className="font-bold text-[var(--text-main)]">/v1/gateway/search</span>
+                      <span className="font-bold text-[var(--text-main)]">/api/v1/runs</span>
+                      <span className="text-[var(--text-muted)] text-[11px]">(or /api/runs via Web Proxy)</span>
                     </div>
                     <p className="text-xs text-[var(--text-muted)] font-sans">
-                      Proxy Tavily search queries through Bifrost Gateway with injected chaos profiles and temporal bounding.
+                      Queue a deterministic benchmark across agents and chaos scenarios with transactional telemetry capture.
                     </p>
                   </div>
 
@@ -1272,13 +1295,26 @@ console.log("Verified claims:", results.claims);`;
                     <div className="text-[var(--text-muted)] font-bold">Request Payload Schema</div>
                     <pre className="text-[var(--text-main)] leading-relaxed">
 {`{
-  "query": "string (required, search query to evaluate)",
-  "temporal_window_days": 30, // integer (default 30, limits grounding to recent window)
-  "chaos_profile": "resilient_eval", // "nominal" | "first_search_503" | "first_search_429"
-  "max_retries": 3,
-  "backoff_jitter": 0.25
+  "task_revision": "meeting-research-v1", // versioned synthetic task
+  "agents": ["python", "http"],           // target agents to benchmark
+  "scenarios": [
+    "baseline",                          // nominal pass (0% fault)
+    "first_search_503",                  // upstream 503 outage on call #1
+    "first_search_429"                   // upstream rate limit on call #1
+  ],
+  "repetitions": 3,                      // iterations per scenario
+  "model_mode": "scripted"               // "scripted" (offline test) or "gateway" (live LLM)
 }`}
                     </pre>
+                  </div>
+
+                  <div className="p-4 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] space-y-2">
+                    <div className="text-[var(--text-muted)] font-bold">Additional Live Endpoints</div>
+                    <ul className="space-y-1 text-xs font-mono text-[var(--text-muted)]">
+                      <li>• <code className="text-[var(--text-main)]">POST /api/v1/verify</code> — Atomic claim freshness check against live Tavily evidence</li>
+                      <li>• <code className="text-[var(--text-main)]">POST /api/v1/briefings</code> — Pre-meeting executive research briefing generation</li>
+                      <li>• <code className="text-[var(--text-main)]">GET /api/v1/runs/:id</code> — Fetch complete run telemetry, attempt traces, and recordings</li>
+                    </ul>
                   </div>
                 </div>
               )}
@@ -1287,26 +1323,33 @@ console.log("Verified claims:", results.claims);`;
               {docTab === "cicd" && (
                 <div className="space-y-4 font-mono text-xs">
                   <div className="flex items-center justify-between">
-                    <span className="font-bold text-[var(--text-main)]">.github/workflows/benchify-ci.yml</span>
+                    <span className="font-bold text-[var(--text-main)]">.github/workflows/benchify.yml</span>
                     <button
                       className="btn-secondary-zinc px-3 py-1 text-xs"
                       onClick={() =>
                         copyCodeSnippet(
-`name: Benchify Agent Regression Gate
+`name: Benchify CI
 on: [push, pull_request]
 
 jobs:
-  benchmark:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Run Benchify Resilience Harness
-        run: |
-          npx benchify run \\
-            --agent ./agent.py \\
-            --scenarios baseline,first_search_503,first_search_429 \\
-            --assert-pass-rate 95 \\
-            --assert-p95-latency 2000`
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt
+      - name: Run Contract & Regression Tests
+        env:
+          PYTHONPATH: backend
+        run: python -m unittest discover -s backend/tests -v
+      - name: Run Scripted Benchmark Suite
+        env:
+          PYTHONPATH: backend
+        run: python -m benchify.benchmark_cli --repetitions 3 --model-mode scripted`
                         )
                       }
                     >
@@ -1316,21 +1359,28 @@ jobs:
                   </div>
 
                   <pre className="p-4 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] text-[var(--text-main)] overflow-x-auto leading-relaxed">
-{`name: Benchify Agent Regression Gate
+{`name: Benchify CI
 on: [push, pull_request]
 
 jobs:
-  benchmark:
+  test:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Run Benchify Resilience Harness
-        run: |
-          npx benchify run \\
-            --agent ./agent.py \\
-            --scenarios baseline,first_search_503,first_search_429 \\
-            --assert-pass-rate 95 \\
-            --assert-p95-latency 2000`}
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: pip install -r backend/requirements.txt
+      - name: Run Contract & Regression Tests
+        env:
+          PYTHONPATH: backend
+        run: python -m unittest discover -s backend/tests -v
+      - name: Run Scripted Benchmark Suite
+        env:
+          PYTHONPATH: backend
+        run: python -m benchify.benchmark_cli --repetitions 3 --model-mode scripted`}
                   </pre>
                 </div>
               )}
@@ -1339,19 +1389,19 @@ jobs:
               {docTab === "webhook" && (
                 <div className="space-y-4 font-mono text-xs">
                   <p className="text-xs text-[var(--text-muted)] font-sans">
-                    Any agent microservice can connect to Benchify by exposing a single POST endpoint matching this contract:
+                    Any agent microservice can connect to Benchify by exposing a single POST endpoint matching this contract (as demonstrated in <code className="text-indigo-400">backend/http-agent.mjs</code>):
                   </p>
                   <div className="p-4 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] space-y-2">
                     <div className="text-[var(--text-muted)] font-bold">Input Payload Sent by Benchify to Your Agent:</div>
                     <pre className="text-[var(--text-main)] leading-relaxed">
 {`{
-  "subject": "Orchard Systems Corp",
-  "window": ["2026-10-25", "2026-11-24"],
   "meeting": {
     "subject": "Orchard Systems Corp",
     "meeting_at": "2026-11-24T14:30:00Z",
     "purpose": "Strategic Partnership & Q4 Cloud Infrastructure Expansion"
-  }
+  },
+  "window": ["2026-10-25", "2026-11-24"],
+  "search_url": "http://127.0.0.1:8000/api/v1/fixture/attempt-uuid/search"
 }`}
                     </pre>
                   </div>
@@ -1362,13 +1412,14 @@ jobs:
 {`{
   "findings": [
     {
-      "claim": "Orchard Systems appointed Dr. Aris Thorne as CSO.",
-      "category": "executive_appointment",
-      "evidence": "https://orchard-systems.com/press"
+      "claim": "Orchard Systems appointed Dr. Aris Thorne as Chief Scientific Officer on October 14, 2026.",
+      "quote": "Orchard Systems is thrilled to announce Dr. Aris Thorne will join as CSO effective immediately on October 14, 2026.",
+      "date": "2026-10-14",
+      "url": "https://orchard-systems.com/press/2026-10-14-cso-appointment"
     }
   ],
   "questions": [
-    "How does the CSO appointment impact Q1 roadmap?"
+    "How does the CSO appointment accelerate Q1 edge compute expansion?"
   ]
 }`}
                     </pre>
