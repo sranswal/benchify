@@ -4,7 +4,7 @@ services:
   name: benchify-api-staging
   runtime: docker
   repo: https://github.com/sranswal/benchify
-  branch: codex/private-hosted-mvp
+  branch: main
   region: singapore
   plan: 0.5c-512mb
   numInstances: 1
