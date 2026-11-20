@@ -220,6 +220,9 @@ export default function Home() {
   const [codeLang, setCodeLang] = useState<"python" | "typescript" | "curl">("python");
   const [copiedCode, setCopiedCode] = useState(false);
 
+  // Documentation tab selector
+  const [docTab, setDocTab] = useState<"quickstart" | "api" | "cicd" | "webhook">("quickstart");
+
   // Stage 3 Report state
   const [activeReportTab, setActiveReportTab] = useState<"telemetry" | "freshness" | "briefing">("telemetry");
   const [activeDossier] = useState<Result>(sampleDossier);
@@ -327,7 +330,7 @@ console.log("Verified claims:", results.claims);`;
           ========================================================================= */}
       <header className="app-header">
         <div className="max-w-[1440px] w-full mx-auto flex items-center justify-between">
-          {/* Left: Real Logo Brand */}
+          {/* Left: Official Brand Logo & Main Nav */}
           <div className="flex items-center gap-6">
             <div
               className="flex items-center gap-3 cursor-pointer group"
@@ -355,7 +358,10 @@ console.log("Verified claims:", results.claims);`;
                   Chaos Engine
                 </a>
                 <a href="#freshness" className="hover:text-[var(--text-main)] transition-colors">
-                  Freshness Auditor (PS06)
+                  Freshness (PS06)
+                </a>
+                <a href="#pre-meeting" className="hover:text-[var(--text-main)] transition-colors">
+                  Pre-Meeting (PS05)
                 </a>
                 <a href="#architecture" className="hover:text-[var(--text-main)] transition-colors">
                   Architecture
@@ -450,7 +456,7 @@ console.log("Verified claims:", results.claims);`;
             STAGE 1: HIGH-CONVERTING DEVELOPER PLATFORM LANDING PAGE
             ========================================================================= */}
         {currentStep === "landing" && (
-          <div className="space-y-28 relative z-10 animate-fade-in">
+          <div className="space-y-32 relative z-10 animate-fade-in">
             {/* HERO SECTION */}
             <section className="text-center pt-8 pb-4 max-w-4xl mx-auto space-y-6">
               {/* Product Release Pill */}
@@ -469,7 +475,7 @@ console.log("Verified claims:", results.claims);`;
 
               {/* Subheadline */}
               <p className="text-base sm:text-lg text-[var(--text-muted)] max-w-2xl mx-auto leading-relaxed">
-                Benchify is the first automated chaos testing & factual freshness harness built specifically for LLM agents.
+                Benchify is the automated chaos testing & factual freshness harness built specifically for LLM agents.
                 Inject deterministic HTTP 503/429 outages, benchmark recovery loops, verify real-time search grounding with Tavily, and certify resilience before merging.
               </p>
 
@@ -508,21 +514,21 @@ console.log("Verified claims:", results.claims);`;
               </div>
             </section>
 
-            {/* FULL-WIDTH INTERACTIVE DEVTOOLS PRODUCT SHOWCASE */}
+            {/* 1. INTERACTIVE CHAOS ENGINE CONSOLE */}
             <section id="chaos-engine" className="devtools-card p-6 sm:p-8 space-y-6">
-              {/* Console Top Navigation Bar */}
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[var(--surface-border)]">
-                <div className="flex items-center gap-3">
-                  <div className="flex gap-1.5">
-                    <span className="w-3 h-3 rounded-full bg-rose-500/80"></span>
-                    <span className="w-3 h-3 rounded-full bg-amber-500/80"></span>
-                    <span className="w-3 h-3 rounded-full bg-emerald-500/80"></span>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-amber-500/20 text-amber-500 font-bold">
+                      FAULT INJECTION
+                    </span>
+                    <h2 className="text-xl font-bold tracking-tight text-[var(--text-main)]">
+                      Deterministic Chaos Simulator
+                    </h2>
                   </div>
-                  <div className="h-4 w-[1px] bg-[var(--surface-border)]"></div>
-                  <div className="flex items-center gap-2 font-mono text-xs text-[var(--text-muted)]">
-                    <IconTerminal className="w-3.5 h-3.5" />
-                    <span>gateway.benchify.internal/v1/chaos-console</span>
-                  </div>
+                  <p className="text-xs text-[var(--text-muted)] mt-1">
+                    Inject upstream service drops and test agent self-healing loops under real network pressure.
+                  </p>
                 </div>
 
                 {/* Console Tabs */}
@@ -533,7 +539,7 @@ console.log("Verified claims:", results.claims);`;
                     }`}
                     onClick={() => setHeroTab("chaos")}
                   >
-                    Deterministic Chaos
+                    Chaos Simulation
                   </button>
                   <button
                     className={`px-3 py-1.5 rounded transition-all ${
@@ -541,7 +547,7 @@ console.log("Verified claims:", results.claims);`;
                     }`}
                     onClick={() => setHeroTab("freshness")}
                   >
-                    Freshness Auditor
+                    Tavily Freshness
                   </button>
                   <button
                     className={`px-3 py-1.5 rounded transition-all ${
@@ -742,7 +748,7 @@ console.log("Verified claims:", results.claims);`;
                 </div>
               )}
 
-              {/* TAB 2: FRESHNESS & GROUNDING AUDITOR */}
+              {/* TAB 2, 3, 4 */}
               {heroTab === "freshness" && (
                 <div className="space-y-4">
                   <div className="p-4 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] space-y-3 font-mono text-xs">
@@ -769,22 +775,12 @@ console.log("Verified claims:", results.claims);`;
                         </div>
                         <div className="text-sm text-[var(--text-main)] font-semibold">{v.claim.statement}</div>
                         <div className="text-xs text-[var(--text-muted)]">{v.explanation}</div>
-                        {v.evidence[0] && (
-                          <div className="pt-1 flex items-center gap-2 text-xs font-mono text-[var(--text-muted)]">
-                            <IconExternalLink className="w-3.5 h-3.5" />
-                            <a href={v.evidence[0].url} target="_blank" rel="noreferrer" className="text-[var(--text-main)] hover:underline">
-                              {v.evidence[0].title}
-                            </a>
-                            <span>({v.evidence[0].published_date})</span>
-                          </div>
-                        )}
                       </div>
                     ))}
                   </div>
                 </div>
               )}
 
-              {/* TAB 3: EXECUTIVE BRIEFING DOSSIER */}
               {heroTab === "briefing" && (
                 <div className="space-y-4">
                   <div className="p-4 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] space-y-2">
@@ -813,31 +809,24 @@ console.log("Verified claims:", results.claims);`;
                 </div>
               )}
 
-              {/* TAB 4: ZERO-CONFIG SDK INTEGRATION */}
               {heroTab === "sdk" && (
                 <div className="space-y-3">
                   <div className="flex items-center justify-between pb-2">
                     <div className="flex items-center gap-1 font-mono text-xs">
                       <button
-                        className={`px-3 py-1 rounded transition-colors ${
-                          codeLang === "python" ? "bg-[var(--surface-base)] text-[var(--text-main)] font-semibold shadow-sm" : "text-[var(--text-muted)] hover:text-[var(--text-main)]"
-                        }`}
+                        className={`px-3 py-1 rounded transition-colors ${codeLang === "python" ? "bg-[var(--surface-base)] text-[var(--text-main)] font-semibold shadow-sm" : "text-[var(--text-muted)]"}`}
                         onClick={() => setCodeLang("python")}
                       >
                         Python
                       </button>
                       <button
-                        className={`px-3 py-1 rounded transition-colors ${
-                          codeLang === "typescript" ? "bg-[var(--surface-base)] text-[var(--text-main)] font-semibold shadow-sm" : "text-[var(--text-muted)] hover:text-[var(--text-main)]"
-                        }`}
+                        className={`px-3 py-1 rounded transition-colors ${codeLang === "typescript" ? "bg-[var(--surface-base)] text-[var(--text-main)] font-semibold shadow-sm" : "text-[var(--text-muted)]"}`}
                         onClick={() => setCodeLang("typescript")}
                       >
                         TypeScript
                       </button>
                       <button
-                        className={`px-3 py-1 rounded transition-colors ${
-                          codeLang === "curl" ? "bg-[var(--surface-base)] text-[var(--text-main)] font-semibold shadow-sm" : "text-[var(--text-muted)] hover:text-[var(--text-main)]"
-                        }`}
+                        className={`px-3 py-1 rounded transition-colors ${codeLang === "curl" ? "bg-[var(--surface-base)] text-[var(--text-main)] font-semibold shadow-sm" : "text-[var(--text-muted)]"}`}
                         onClick={() => setCodeLang("curl")}
                       >
                         cURL
@@ -853,7 +842,7 @@ console.log("Verified claims:", results.claims);`;
                       }
                     >
                       {copiedCode ? <IconCheck className="w-3.5 h-3.5 text-emerald-500" /> : <IconCopy className="w-3.5 h-3.5" />}
-                      <span>{copiedCode ? "Copied" : "Copy Snippet"}</span>
+                      <span>{copiedCode ? "Copied" : "Copy"}</span>
                     </button>
                   </div>
 
@@ -862,32 +851,13 @@ console.log("Verified claims:", results.claims);`;
                   </pre>
                 </div>
               )}
-
-              {/* Console Footer Action Bar */}
-              <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-t border-[var(--surface-border)] text-xs text-[var(--text-muted)] font-mono">
-                <div className="flex items-center gap-2">
-                  <IconCheckCircle className="w-4 h-4 text-emerald-500" />
-                  <span>Deterministic fault injection • Zero flaky tests • Local & CI compatible</span>
-                </div>
-                <button
-                  className="btn-primary-white py-2 px-4 text-xs font-semibold"
-                  onClick={() => {
-                    setCurrentStep("benchmark");
-                    setShowStudioTour(true);
-                    setTourStep(1);
-                  }}
-                >
-                  <span>Launch Benchmark Studio</span>
-                  <IconArrowRight className="w-3.5 h-3.5" />
-                </button>
-              </div>
             </section>
 
-            {/* FEATURES BENTO GRID */}
+            {/* 2. CORE FEATURES / WHY AGENTS FAIL */}
             <section id="features" className="space-y-6">
               <div className="text-center max-w-2xl mx-auto space-y-2">
                 <span className="text-xs font-mono text-[var(--text-muted)] uppercase tracking-widest font-semibold">
-                  Core Capabilities
+                  Platform Architecture
                 </span>
                 <h2 className="text-3xl font-bold tracking-tight text-[var(--text-main)]">
                   Why AI Agents Fail in Production
@@ -913,7 +883,7 @@ console.log("Verified claims:", results.claims);`;
                 </div>
 
                 {/* Feature 2 */}
-                <div id="freshness" className="devtools-card p-6 space-y-4">
+                <div className="devtools-card p-6 space-y-4">
                   <div className="w-10 h-10 rounded-lg bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-500">
                     <IconClock className="w-5 h-5" />
                   </div>
@@ -942,46 +912,473 @@ console.log("Verified claims:", results.claims);`;
               </div>
             </section>
 
-            {/* ARCHITECTURE & 3-STEP PIPELINE */}
-            <section id="architecture" className="devtools-card p-8 space-y-8">
-              <div className="text-center max-w-xl mx-auto space-y-2">
-                <span className="text-xs font-mono text-[var(--text-muted)] uppercase tracking-widest font-semibold">
-                  How It Works
-                </span>
-                <h2 className="text-2xl font-bold tracking-tight text-[var(--text-main)]">
-                  The Path to Certified Production Resilience
-                </h2>
+            {/* 3. DEDICATED FRESHNESS AUDITOR SECTION (PS06) */}
+            <section id="freshness" className="devtools-card p-6 sm:p-8 space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[var(--surface-border)]">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/20 text-emerald-500 font-bold">
+                      PS06 BENCHMARK
+                    </span>
+                    <h2 className="text-xl font-bold tracking-tight text-[var(--text-main)]">
+                      Freshness & Grounding Auditor
+                    </h2>
+                  </div>
+                  <p className="text-xs text-[var(--text-muted)] mt-1">
+                    Eliminate temporal hallucinations with atomic claim decomposition, 30-day bounded search, and SEC 10-Q grounding.
+                  </p>
+                </div>
+
+                <div className="flex items-center gap-2 font-mono text-xs">
+                  <span className="px-3 py-1 rounded bg-[var(--surface-dim)] border border-[var(--surface-border)] text-emerald-500 font-semibold">
+                    Live Tavily Verification Active
+                  </span>
+                </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 font-mono text-xs">
-                <div className="p-6 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] space-y-3">
-                  <div className="text-[var(--text-muted)] font-semibold text-sm">01 / CONNECT</div>
-                  <div className="text-[var(--text-main)] font-bold text-sm">Point or Wrap Your Agent</div>
-                  <p className="text-[var(--text-muted)] leading-relaxed font-sans text-xs">
-                    Connect any agent via a single REST webhook endpoint, or run our native Python harness using LangGraph, CrewAI, or LlamaIndex.
+              {/* Explanatory 3-Pillar Cards for PS06 */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="p-4 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] space-y-2">
+                  <div className="text-xs font-mono font-bold text-[var(--text-main)] flex items-center gap-2">
+                    <IconCpu className="w-4 h-4 text-emerald-500" />
+                    <span>Atomic Claim Splitting</span>
+                  </div>
+                  <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+                    Decomposes long-form agent briefing prose into discrete, falsifiable claims (e.g. executive hires, funding rounds, revenue figures).
                   </p>
                 </div>
 
-                <div className="p-6 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] space-y-3">
-                  <div className="text-[var(--text-muted)] font-semibold text-sm">02 / SIMULATE</div>
-                  <div className="text-[var(--text-main)] font-bold text-sm">Execute Chaos Matrix</div>
-                  <p className="text-[var(--text-muted)] leading-relaxed font-sans text-xs">
-                    Subject the agent to real-time 503 outages, rate limits, socket latency, and claim freshness traps across configurable repetitions.
+                <div className="p-4 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] space-y-2">
+                  <div className="text-xs font-mono font-bold text-[var(--text-main)] flex items-center gap-2">
+                    <IconSearch className="w-4 h-4 text-indigo-500" />
+                    <span>Dual-Source Grounding</span>
+                  </div>
+                  <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+                    Validates each claim against real-time Tavily search index results and official SEC EDGAR 10-Q/8-K regulatory filings.
                   </p>
                 </div>
 
-                <div className="p-6 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] space-y-3">
-                  <div className="text-[var(--text-muted)] font-semibold text-sm">03 / CERTIFY</div>
-                  <div className="text-[var(--text-main)] font-bold text-sm">Export Intelligence Dossier</div>
-                  <p className="text-[var(--text-muted)] leading-relaxed font-sans text-xs">
-                    Download certified telemetry dossiers, deterministic JSON replay recordings, and automated CI/CD regression gates.
+                <div className="p-4 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] space-y-2">
+                  <div className="text-xs font-mono font-bold text-[var(--text-main)] flex items-center gap-2">
+                    <IconClock className="w-4 h-4 text-amber-500" />
+                    <span>Temporal Decay Curve</span>
+                  </div>
+                  <p className="text-xs text-[var(--text-muted)] leading-relaxed">
+                    Scores freshness from 0 to 100 based on event publication dates versus the requested 30-day research window.
                   </p>
+                </div>
+              </div>
+
+              {/* Interactive Live Claim Auditor */}
+              <div className="p-5 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] space-y-3">
+                <label className="block text-xs font-mono font-semibold text-[var(--text-main)]">
+                  Try Live Claim Verification (Tavily Grounded):
+                </label>
+                <div className="flex flex-col sm:flex-row gap-2">
+                  <input
+                    type="text"
+                    className="flex-1 px-3 py-2 rounded bg-[var(--surface-base)] border border-[var(--surface-border)] text-xs text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:border-zinc-500 font-mono"
+                    value={claimInput}
+                    onChange={(e) => setClaimInput(e.target.value)}
+                    placeholder="Enter factual claim to verify..."
+                  />
+                  <button
+                    className="btn-primary-white px-4 py-2 text-xs whitespace-nowrap"
+                    onClick={handleVerifyClaim}
+                    disabled={loadingVerify}
+                  >
+                    {loadingVerify ? <IconRefreshCw className="w-3.5 h-3.5 animate-spin" /> : <IconSearch className="w-3.5 h-3.5" />}
+                    <span>{loadingVerify ? "Verifying..." : "Verify Claim Grounding"}</span>
+                  </button>
+                </div>
+              </div>
+
+              {/* Verified Claims List */}
+              <div className="space-y-3">
+                {verifiedList.map((item, idx) => (
+                  <div key={idx} className="p-4 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] space-y-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                      <span className="text-xs font-mono text-[var(--text-muted)] uppercase">
+                        Claim #{idx + 1} • {item.claim.category.replaceAll("_", " ")}
+                      </span>
+                      <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/20 text-emerald-500 font-bold self-start sm:self-auto">
+                        {item.freshness_score}/100 FRESHNESS • SUPPORTED
+                      </span>
+                    </div>
+
+                    <div className="text-sm font-semibold text-[var(--text-main)]">{item.claim.statement}</div>
+                    <div className="text-xs text-[var(--text-muted)] leading-relaxed">{item.explanation}</div>
+
+                    {item.evidence.length > 0 && (
+                      <div className="space-y-1.5 pt-2 border-t border-[var(--surface-border)]">
+                        <span className="text-[11px] font-mono text-[var(--text-muted)]">Grounded Primary Sources:</span>
+                        {item.evidence.map((ev, eIdx) => (
+                          <div key={eIdx} className="p-2.5 rounded bg-[var(--surface-base)] border border-[var(--surface-border)] text-xs space-y-1">
+                            <div className="flex items-center justify-between">
+                              <a
+                                href={ev.url}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="font-semibold text-[var(--text-main)] hover:underline flex items-center gap-1.5"
+                              >
+                                <span>{ev.title}</span>
+                                <IconExternalLink className="w-3 h-3 text-[var(--text-muted)]" />
+                              </a>
+                              <span className="text-[10px] font-mono text-[var(--text-muted)]">
+                                {ev.published_date || "verified"}
+                              </span>
+                            </div>
+                            <blockquote className="text-[11px] text-[var(--text-muted)] italic">
+                              "{ev.quote}"
+                            </blockquote>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </section>
+
+            {/* 4. DEDICATED PRE-MEETING EXECUTIVE BRIEFING SECTION (PS05) */}
+            <section id="pre-meeting" className="devtools-card p-6 sm:p-8 space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[var(--surface-border)]">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-indigo-500/20 text-indigo-500 font-bold">
+                      PS05 REFERENCE WORKLOAD
+                    </span>
+                    <h2 className="text-xl font-bold tracking-tight text-[var(--text-main)]">
+                      Pre-Meeting Executive Intelligence
+                    </h2>
+                  </div>
+                  <p className="text-xs text-[var(--text-muted)] mt-1">
+                    Autonomous briefing workload that delivers corporate dossiers, recent 30-day developments, and strategic discussion questions.
+                  </p>
+                </div>
+
+                <button
+                  className="btn-secondary-zinc px-3 py-1.5 text-xs font-mono"
+                  onClick={() => downloadMarkdown(sampleDossier)}
+                >
+                  <IconDownload className="w-3.5 h-3.5" />
+                  <span>Download Sample Dossier (.MD)</span>
+                </button>
+              </div>
+
+              {/* Workload Showcase Grid */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="space-y-4">
+                  <div className="p-4 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] space-y-2">
+                    <div className="text-xs font-mono font-bold text-[var(--text-muted)] uppercase">
+                      Target Meeting Scenario
+                    </div>
+                    <div className="text-sm font-bold text-[var(--text-main)]">
+                      Orchard Systems Corp — Q4 Partnership & Expansion
+                    </div>
+                    <div className="text-xs text-[var(--text-muted)]">
+                      Window: October 25 to November 24, 2026 (Strict 30-Day Bounded Temporal Range)
+                    </div>
+                  </div>
+
+                  <div className="p-4 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] space-y-2">
+                    <div className="text-xs font-mono font-bold text-[var(--text-muted)] uppercase">
+                      Key Grounded Developments
+                    </div>
+                    <ul className="space-y-2 text-xs text-[var(--text-main)]">
+                      <li className="flex items-start gap-2">
+                        <span className="text-emerald-500 font-bold">•</span>
+                        <span>Appointed Dr. Aris Thorne as CSO to lead synthetic biology edge compute.</span>
+                      </li>
+                      <li className="flex items-start gap-2">
+                        <span className="text-emerald-500 font-bold">•</span>
+                        <span>Closed $42.5M strategic Series C non-voting participation from Northwind Bio.</span>
+                      </li>
+                    </ul>
+                  </div>
+                </div>
+
+                <div className="p-4 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] space-y-3">
+                  <div className="text-xs font-mono font-bold text-[var(--text-muted)] uppercase">
+                    Suggested C-Level Discussion Questions
+                  </div>
+                  <div className="space-y-2.5 font-mono text-xs">
+                    {sampleDossier.questions?.map((q, idx) => (
+                      <div key={idx} className="p-2.5 rounded bg-[var(--surface-base)] border border-[var(--surface-border)] flex items-start gap-2 text-[var(--text-main)]">
+                        <span className="text-[var(--text-muted)] font-bold">{idx + 1}.</span>
+                        <span>{q}</span>
+                      </div>
+                    ))}
+                  </div>
                 </div>
               </div>
             </section>
 
-            {/* BOTTOM CALL TO ACTION BANNER */}
-            <section id="docs" className="text-center py-12 space-y-6">
+            {/* 5. AUTHORITATIVE RESILIENCE ARCHITECTURE */}
+            <section id="architecture" className="devtools-card p-6 sm:p-8 space-y-8">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[var(--surface-border)]">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-indigo-500/20 text-indigo-500 font-bold">
+                      SYSTEM ARCHITECTURE
+                    </span>
+                    <h2 className="text-xl font-bold tracking-tight text-[var(--text-main)]">
+                      Bifrost Gateway & Resilience Pipeline
+                    </h2>
+                  </div>
+                  <p className="text-xs text-[var(--text-muted)] mt-1">
+                    How Benchify routes, stress-tests, and verifies agent workloads between client harnesses and upstream providers.
+                  </p>
+                </div>
+              </div>
+
+              {/* 4-Tier Architectural Diagram & Breakdown */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-4 font-mono text-xs">
+                {/* Layer 1 */}
+                <div className="p-5 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] space-y-3">
+                  <div className="text-[10px] text-zinc-500 font-bold uppercase">TIER 1 • HARNESS</div>
+                  <div className="text-sm font-bold text-[var(--text-main)]">Agent Client Layer</div>
+                  <p className="text-xs font-sans text-[var(--text-muted)] leading-relaxed">
+                    LangGraph, CrewAI, AutoGen, LlamaIndex, or custom HTTP REST webhooks running local or cloud agents.
+                  </p>
+                  <div className="pt-2 text-[10px] text-indigo-500">
+                    → Sends search & inference requests
+                  </div>
+                </div>
+
+                {/* Layer 2 */}
+                <div className="p-5 rounded-lg bg-[var(--surface-dim)] border border-indigo-500/40 space-y-3 shadow-sm">
+                  <div className="text-[10px] text-indigo-500 font-bold uppercase">TIER 2 • GATEWAY</div>
+                  <div className="text-sm font-bold text-[var(--text-main)]">Bifrost Proxy</div>
+                  <p className="text-xs font-sans text-[var(--text-muted)] leading-relaxed">
+                    Deterministic fault injector, circuit breaker (Closed/Open), and jittered exponential backoff scheduler.
+                  </p>
+                  <div className="pt-2 text-[10px] text-emerald-500">
+                    → Injects 503 / 429 / Jitter chaos
+                  </div>
+                </div>
+
+                {/* Layer 3 */}
+                <div className="p-5 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] space-y-3">
+                  <div className="text-[10px] text-zinc-500 font-bold uppercase">TIER 3 • INGESTION</div>
+                  <div className="text-sm font-bold text-[var(--text-main)]">Search & LLM Nodes</div>
+                  <p className="text-xs font-sans text-[var(--text-muted)] leading-relaxed">
+                    Tavily Live Web Search API, SEC EDGAR 10-Q disclosures, Gemini Flash-Lite, GPT-4o, and Claude 3.5 Sonnet.
+                  </p>
+                  <div className="pt-2 text-[10px] text-amber-500">
+                    → High-fidelity grounded facts
+                  </div>
+                </div>
+
+                {/* Layer 4 */}
+                <div className="p-5 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] space-y-3">
+                  <div className="text-[10px] text-zinc-500 font-bold uppercase">TIER 4 • EVALS</div>
+                  <div className="text-sm font-bold text-[var(--text-main)]">Certification Engine</div>
+                  <p className="text-xs font-sans text-[var(--text-muted)] leading-relaxed">
+                    Freshness decay calculation (PS06), p95 latency profiling, deterministic JSON replay recording, and CI blocker.
+                  </p>
+                  <div className="pt-2 text-[10px] text-emerald-500">
+                    → Certified Intelligence Dossier
+                  </div>
+                </div>
+              </div>
+            </section>
+
+            {/* 6. DEDICATED DOCUMENTATION & API SPECIFICATION */}
+            <section id="docs" className="devtools-card p-6 sm:p-8 space-y-6">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[var(--surface-border)]">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-emerald-500/20 text-emerald-500 font-bold">
+                      DOCUMENTATION & SPEC
+                    </span>
+                    <h2 className="text-xl font-bold tracking-tight text-[var(--text-main)]">
+                      Developer Reference & API Specification
+                    </h2>
+                  </div>
+                  <p className="text-xs text-[var(--text-muted)] mt-1">
+                    Complete integration specs, gateway API schemas, and CI/CD workflow recipes.
+                  </p>
+                </div>
+
+                {/* Doc Tabs */}
+                <div className="flex items-center gap-1 bg-[var(--surface-dim)] p-1 rounded-lg border border-[var(--surface-border)] font-mono text-xs">
+                  <button
+                    className={`px-3 py-1.5 rounded transition-all ${docTab === "quickstart" ? "bg-[var(--surface-base)] text-[var(--text-main)] font-semibold shadow-sm" : "text-[var(--text-muted)]"}`}
+                    onClick={() => setDocTab("quickstart")}
+                  >
+                    Quickstart
+                  </button>
+                  <button
+                    className={`px-3 py-1.5 rounded transition-all ${docTab === "api" ? "bg-[var(--surface-base)] text-[var(--text-main)] font-semibold shadow-sm" : "text-[var(--text-muted)]"}`}
+                    onClick={() => setDocTab("api")}
+                  >
+                    Gateway API
+                  </button>
+                  <button
+                    className={`px-3 py-1.5 rounded transition-all ${docTab === "cicd" ? "bg-[var(--surface-base)] text-[var(--text-main)] font-semibold shadow-sm" : "text-[var(--text-muted)]"}`}
+                    onClick={() => setDocTab("cicd")}
+                  >
+                    GitHub Actions
+                  </button>
+                  <button
+                    className={`px-3 py-1.5 rounded transition-all ${docTab === "webhook" ? "bg-[var(--surface-base)] text-[var(--text-main)] font-semibold shadow-sm" : "text-[var(--text-muted)]"}`}
+                    onClick={() => setDocTab("webhook")}
+                  >
+                    Agent Webhook Spec
+                  </button>
+                </div>
+              </div>
+
+              {/* DOC CONTENT: QUICKSTART */}
+              {docTab === "quickstart" && (
+                <div className="space-y-4">
+                  <h3 className="text-sm font-bold text-[var(--text-main)] font-mono">
+                    3-Step Local Quickstart
+                  </h3>
+                  <div className="space-y-3 font-mono text-xs">
+                    <div className="p-4 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] space-y-2">
+                      <div className="text-[var(--text-muted)] font-bold">1. Install Benchify Harness CLI</div>
+                      <pre className="text-emerald-500">npm install -g benchify-cli</pre>
+                    </div>
+
+                    <div className="p-4 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] space-y-2">
+                      <div className="text-[var(--text-muted)] font-bold">2. Run Local Benchmark against Your Agent</div>
+                      <pre className="text-[var(--text-main)]">benchify run --agent http://localhost:8001/execute --scenarios 503,429 --reps 3</pre>
+                    </div>
+
+                    <div className="p-4 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] space-y-2">
+                      <div className="text-[var(--text-muted)] font-bold">3. Inspect Certified Telemetry Dossier</div>
+                      <pre className="text-[var(--text-main)]">benchify report --run latest --format json,markdown</pre>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* DOC CONTENT: GATEWAY API */}
+              {docTab === "api" && (
+                <div className="space-y-4 font-mono text-xs">
+                  <div className="p-4 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] space-y-2">
+                    <div className="flex items-center gap-2">
+                      <span className="px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-500 font-bold">POST</span>
+                      <span className="font-bold text-[var(--text-main)]">/v1/gateway/search</span>
+                    </div>
+                    <p className="text-xs text-[var(--text-muted)] font-sans">
+                      Proxy Tavily search queries through Bifrost Gateway with injected chaos profiles and temporal bounding.
+                    </p>
+                  </div>
+
+                  <div className="p-4 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] space-y-2">
+                    <div className="text-[var(--text-muted)] font-bold">Request Payload Schema</div>
+                    <pre className="text-[var(--text-main)] leading-relaxed">
+{`{
+  "query": "string (required, search query to evaluate)",
+  "temporal_window_days": 30, // integer (default 30, limits grounding to recent window)
+  "chaos_profile": "resilient_eval", // "nominal" | "first_search_503" | "first_search_429"
+  "max_retries": 3,
+  "backoff_jitter": 0.25
+}`}
+                    </pre>
+                  </div>
+                </div>
+              )}
+
+              {/* DOC CONTENT: CI/CD */}
+              {docTab === "cicd" && (
+                <div className="space-y-4 font-mono text-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="font-bold text-[var(--text-main)]">.github/workflows/benchify-ci.yml</span>
+                    <button
+                      className="btn-secondary-zinc px-3 py-1 text-xs"
+                      onClick={() =>
+                        copyCodeSnippet(
+`name: Benchify Agent Regression Gate
+on: [push, pull_request]
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Benchify Resilience Harness
+        run: |
+          npx benchify run \\
+            --agent ./agent.py \\
+            --scenarios baseline,first_search_503,first_search_429 \\
+            --assert-pass-rate 95 \\
+            --assert-p95-latency 2000`
+                        )
+                      }
+                    >
+                      <IconCopy className="w-3.5 h-3.5" />
+                      <span>Copy Workflow</span>
+                    </button>
+                  </div>
+
+                  <pre className="p-4 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] text-[var(--text-main)] overflow-x-auto leading-relaxed">
+{`name: Benchify Agent Regression Gate
+on: [push, pull_request]
+
+jobs:
+  benchmark:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Benchify Resilience Harness
+        run: |
+          npx benchify run \\
+            --agent ./agent.py \\
+            --scenarios baseline,first_search_503,first_search_429 \\
+            --assert-pass-rate 95 \\
+            --assert-p95-latency 2000`}
+                  </pre>
+                </div>
+              )}
+
+              {/* DOC CONTENT: WEBHOOK CONTRACT */}
+              {docTab === "webhook" && (
+                <div className="space-y-4 font-mono text-xs">
+                  <p className="text-xs text-[var(--text-muted)] font-sans">
+                    Any agent microservice can connect to Benchify by exposing a single POST endpoint matching this contract:
+                  </p>
+                  <div className="p-4 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] space-y-2">
+                    <div className="text-[var(--text-muted)] font-bold">Input Payload Sent by Benchify to Your Agent:</div>
+                    <pre className="text-[var(--text-main)] leading-relaxed">
+{`{
+  "subject": "Orchard Systems Corp",
+  "window": ["2026-10-25", "2026-11-24"],
+  "meeting": {
+    "subject": "Orchard Systems Corp",
+    "meeting_at": "2026-11-24T14:30:00Z",
+    "purpose": "Strategic Partnership & Q4 Cloud Infrastructure Expansion"
+  }
+}`}
+                    </pre>
+                  </div>
+
+                  <div className="p-4 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] space-y-2">
+                    <div className="text-[var(--text-muted)] font-bold">Output Response Expected from Your Agent:</div>
+                    <pre className="text-emerald-500 leading-relaxed">
+{`{
+  "findings": [
+    {
+      "claim": "Orchard Systems appointed Dr. Aris Thorne as CSO.",
+      "category": "executive_appointment",
+      "evidence": "https://orchard-systems.com/press"
+    }
+  ],
+  "questions": [
+    "How does the CSO appointment impact Q1 roadmap?"
+  ]
+}`}
+                    </pre>
+                  </div>
+                </div>
+              )}
+            </section>
+
+            {/* 7. BOTTOM CALL TO ACTION BANNER */}
+            <section className="text-center py-12 space-y-6">
               <h2 className="text-3xl sm:text-4xl font-extrabold tracking-tight text-[var(--text-main)]">
                 Ready to Stress-Test Your Agent?
               </h2>
@@ -1463,31 +1860,6 @@ console.log("Verified claims:", results.claims);`;
                     </span>
                   </div>
 
-                  {/* Interactive Claim Verification Input */}
-                  <div className="p-4 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] space-y-3">
-                    <label className="block text-xs font-mono text-[var(--text-muted)]">
-                      Audit a custom claim against live web grounding:
-                    </label>
-                    <div className="flex flex-col sm:flex-row gap-2">
-                      <input
-                        type="text"
-                        className="flex-1 px-3 py-2 rounded bg-[var(--surface-base)] border border-[var(--surface-border)] text-xs text-[var(--text-main)] placeholder-[var(--text-muted)] focus:outline-none focus:border-zinc-500 font-mono"
-                        value={claimInput}
-                        onChange={(e) => setClaimInput(e.target.value)}
-                        placeholder="Enter claim to verify..."
-                      />
-                      <button
-                        className="btn-primary-white px-4 py-2 text-xs whitespace-nowrap"
-                        onClick={handleVerifyClaim}
-                        disabled={loadingVerify}
-                      >
-                        {loadingVerify ? <IconRefreshCw className="w-3.5 h-3.5 animate-spin" /> : <IconSearch className="w-3.5 h-3.5" />}
-                        <span>{loadingVerify ? "Verifying..." : "Verify Claim"}</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* List of Verified Claims */}
                   <div className="space-y-4 pt-2">
                     {verifiedList.map((item, idx) => (
                       <div key={idx} className="p-4 rounded-lg bg-[var(--surface-dim)] border border-[var(--surface-border)] space-y-3">
@@ -1640,7 +2012,7 @@ console.log("Verified claims:", results.claims);`;
       {/* =========================================================================
           COMPREHENSIVE PROFESSIONAL FOOTER
           ========================================================================= */}
-      <footer className="mt-24 border-t border-[var(--surface-border)] bg-[var(--surface-dim)] py-14 text-xs text-[var(--text-muted)]">
+      <footer className="mt-28 border-t border-[var(--surface-border)] bg-[var(--surface-dim)] py-14 text-xs text-[var(--text-muted)]">
         <div className="max-w-[1440px] w-full mx-auto px-4 sm:px-6 lg:px-8 space-y-12">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
             {/* Col 1: Brand & Status */}
@@ -1674,9 +2046,9 @@ console.log("Verified claims:", results.claims);`;
               <ul className="space-y-2 text-xs">
                 <li><a href="#chaos-engine" className="hover:text-[var(--text-main)] transition-colors">Deterministic Chaos Matrix</a></li>
                 <li><a href="#freshness" className="hover:text-[var(--text-main)] transition-colors">Freshness Auditor (PS06)</a></li>
+                <li><a href="#pre-meeting" className="hover:text-[var(--text-main)] transition-colors">Pre-Meeting Intelligence (PS05)</a></li>
                 <li><a href="#architecture" className="hover:text-[var(--text-main)] transition-colors">Bifrost Inference Gateway</a></li>
-                <li><a href="#features" className="hover:text-[var(--text-main)] transition-colors">Head-to-Head Comparison</a></li>
-                <li><a href="#features" className="hover:text-[var(--text-main)] transition-colors">CI/CD Regression Blocker</a></li>
+                <li><a href="#docs" className="hover:text-[var(--text-main)] transition-colors">API & Webhook Specification</a></li>
               </ul>
             </div>
 
@@ -1712,7 +2084,7 @@ console.log("Verified claims:", results.claims);`;
                     <span>GitHub: sranswal/benchify</span>
                   </a>
                 </li>
-                <li><a href="#docs" className="hover:text-[var(--text-main)] transition-colors">Architecture Specification</a></li>
+                <li><a href="#architecture" className="hover:text-[var(--text-main)] transition-colors">Architecture Specification</a></li>
                 <li><a href="#docs" className="hover:text-[var(--text-main)] transition-colors">HTTP Webhook Protocol</a></li>
                 <li><span>Apache 2.0 Open Source</span></li>
               </ul>
@@ -1729,7 +2101,7 @@ console.log("Verified claims:", results.claims);`;
                 GitHub Repository
               </a>
               <span>•</span>
-              <a href="https://github.com/sranswal/benchify#readme" target="_blank" rel="noreferrer" className="hover:text-[var(--text-main)] transition-colors">
+              <a href="#docs" className="hover:text-[var(--text-main)] transition-colors">
                 Documentation
               </a>
               <span>•</span>
