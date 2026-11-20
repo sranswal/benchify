@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Image from "next/image";
 import Benchmark from "./benchmark";
+import { openExecutivePdfReport } from "./executiveReport";
 import {
   IconZap,
   IconShieldCheck,
@@ -582,8 +583,8 @@ console.log("Run Created:", run.id);`;
                     <div className="flex flex-wrap gap-1.5">
                       <button
                         className={`px-3 py-1.5 rounded text-xs font-mono transition-all ${heroFault === "503"
-                            ? "bg-rose-500/20 text-rose-500 dark:text-rose-300 font-bold border border-rose-500/40"
-                            : "bg-[var(--surface-base)] text-[var(--text-muted)] hover:text-[var(--text-main)] border border-[var(--surface-border)]"
+                          ? "bg-rose-500/20 text-rose-500 dark:text-rose-300 font-bold border border-rose-500/40"
+                          : "bg-[var(--surface-base)] text-[var(--text-muted)] hover:text-[var(--text-main)] border border-[var(--surface-border)]"
                           }`}
                         onClick={() => setHeroFault("503")}
                       >
@@ -591,8 +592,8 @@ console.log("Run Created:", run.id);`;
                       </button>
                       <button
                         className={`px-3 py-1.5 rounded text-xs font-mono transition-all ${heroFault === "429"
-                            ? "bg-amber-500/20 text-amber-500 dark:text-amber-300 font-bold border border-amber-500/40"
-                            : "bg-[var(--surface-base)] text-[var(--text-muted)] hover:text-[var(--text-main)] border border-[var(--surface-border)]"
+                          ? "bg-amber-500/20 text-amber-500 dark:text-amber-300 font-bold border border-amber-500/40"
+                          : "bg-[var(--surface-base)] text-[var(--text-muted)] hover:text-[var(--text-main)] border border-[var(--surface-border)]"
                           }`}
                         onClick={() => setHeroFault("429")}
                       >
@@ -600,8 +601,8 @@ console.log("Run Created:", run.id);`;
                       </button>
                       <button
                         className={`px-3 py-1.5 rounded text-xs font-mono transition-all ${heroFault === "jitter"
-                            ? "bg-indigo-500/20 text-indigo-500 dark:text-indigo-300 font-bold border border-indigo-500/40"
-                            : "bg-[var(--surface-base)] text-[var(--text-muted)] hover:text-[var(--text-main)] border border-[var(--surface-border)]"
+                          ? "bg-indigo-500/20 text-indigo-500 dark:text-indigo-300 font-bold border border-indigo-500/40"
+                          : "bg-[var(--surface-base)] text-[var(--text-muted)] hover:text-[var(--text-main)] border border-[var(--surface-border)]"
                           }`}
                         onClick={() => setHeroFault("jitter")}
                       >
@@ -609,8 +610,8 @@ console.log("Run Created:", run.id);`;
                       </button>
                       <button
                         className={`px-3 py-1.5 rounded text-xs font-mono transition-all ${heroFault === "nominal"
-                            ? "bg-emerald-500/20 text-emerald-500 dark:text-emerald-300 font-bold border border-emerald-500/40"
-                            : "bg-[var(--surface-base)] text-[var(--text-muted)] hover:text-[var(--text-main)] border border-[var(--surface-border)]"
+                          ? "bg-emerald-500/20 text-emerald-500 dark:text-emerald-300 font-bold border border-emerald-500/40"
+                          : "bg-[var(--surface-base)] text-[var(--text-muted)] hover:text-[var(--text-main)] border border-[var(--surface-border)]"
                           }`}
                         onClick={() => setHeroFault("nominal")}
                       >
@@ -624,12 +625,12 @@ console.log("Run Created:", run.id);`;
                     <div className="flex items-center gap-2">
                       <IconAlertTriangle
                         className={`w-4 h-4 ${heroFault === "503"
-                            ? "text-rose-500"
-                            : heroFault === "429"
-                              ? "text-amber-500"
-                              : heroFault === "jitter"
-                                ? "text-indigo-500"
-                                : "text-emerald-500"
+                          ? "text-rose-500"
+                          : heroFault === "429"
+                            ? "text-amber-500"
+                            : heroFault === "jitter"
+                              ? "text-indigo-500"
+                              : "text-emerald-500"
                           }`}
                       />
                       <span className="font-semibold text-[var(--text-main)]">
@@ -1493,7 +1494,7 @@ jobs:
                     <div className="flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
                       <h3 className="font-bold text-sm text-[var(--text-main)]">
-                        Quick Onboarding Guide - Step {tourStep} of 3
+                        Step {tourStep} of 3
                       </h3>
                     </div>
                     <button
@@ -1637,11 +1638,65 @@ jobs:
                   <span>Download .MD</span>
                 </button>
                 <button
-                  className="btn-secondary-zinc px-3 py-2 text-xs"
-                  onClick={() => window.print()}
+                  className="btn-secondary-zinc px-3 py-2 text-xs font-semibold flex items-center gap-1.5 cursor-pointer"
+                  onClick={() => {
+                    openExecutivePdfReport({
+                      reportId: activeDossier.workflow_id,
+                      meeting: activeDossier.meeting || { subject: "Orchard Systems Corp" },
+                      window: activeDossier.window,
+                      metrics: {
+                        passRate: 100,
+                        recoveryRate: 100,
+                        latency: 1120,
+                        tokens: 1840,
+                        cost: 0.0018
+                      },
+                      agents: [
+                        {
+                          name: "Python Agent (Native Async)",
+                          type: "NATIVE",
+                          grade: "GRADE A+",
+                          passRate: "2/2 (100%)",
+                          latency: "1,120ms",
+                          cost: "$0.0018",
+                          efficiency: "2,450 tok / attempt",
+                          resilience: "100% (Self-healed 503)",
+                          freshness: "98 / 100",
+                          diagnosis: "TaskGroup async scheduler caught 503, applied jittered backoff, and settled research context cleanly."
+                        },
+                        {
+                          name: "Node.js Agent (Microservice)",
+                          type: "EXTERNAL",
+                          grade: "GRADE B-",
+                          passRate: "2/2 (100%)",
+                          latency: "2,840ms",
+                          cost: "$0.0039",
+                          efficiency: "3,890 tok / attempt",
+                          resilience: "Degraded (Half-Open)",
+                          freshness: "84 / 100",
+                          diagnosis: "Linear retry generated 4 redundant tool calls, adding +1,720ms latency drag."
+                        }
+                      ],
+                      findings: (activeDossier.findings || activeDossier.verification || []).map((f) => ({
+                        claim: f.claim.statement,
+                        category: f.claim.category,
+                        status: f.status,
+                        freshness_score: f.freshness_score,
+                        analysis: f.explanation,
+                        evidence: f.evidence
+                      })),
+                      questions: activeDossier.questions,
+                      events: activeDossier.events?.map((e) => ({
+                        service: e.service,
+                        status: e.status,
+                        elapsed_ms: e.elapsed_ms,
+                        client_request_id: e.client_request_id
+                      }))
+                    });
+                  }}
                 >
                   <IconFileText className="w-3.5 h-3.5" />
-                  <span>Print PDF</span>
+                  <span>Executive PDF Report</span>
                 </button>
                 <button
                   className="btn-secondary-zinc px-3 py-2 text-xs"
