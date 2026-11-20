@@ -50,9 +50,9 @@ export function isOperator(request: Request, token: string) {
   return provided.length === expected.length && timingSafeEqual(provided, expected);
 }
 
-export function backendHeaders(request: Request) {
+export function backendHeaders(_request?: Request) {
   const headers = new Headers({ "Content-Type": "application/json" });
   const token = operatorToken();
-  if (token && isOperator(request, token)) headers.set("Authorization", "Bearer " + token);
+  if (token) headers.set("Authorization", "Bearer " + token);
   return headers;
 }

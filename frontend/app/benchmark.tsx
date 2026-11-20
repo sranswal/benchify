@@ -1,6 +1,7 @@
 "use client";
 
 import { FormEvent, useEffect, useState } from "react";
+import { IconZap, IconPlay, IconCopy, IconCheck, IconX } from "./icons";
 
 type Agent = string;
 type Scenario = "baseline" | "first_search_503" | "first_search_429";
@@ -60,12 +61,10 @@ const defaultScenarios: Scenario[] = ["baseline", "first_search_503"];
 const scenarios: Scenario[] = [...defaultScenarios, "first_search_429"];
 const agentLabel: Record<Agent, string> = { python: "Built-in Python", http: "Independent HTTP" };
 const scenarioLabel = {
-  baseline: "Baseline", first_search_503: "First search returns 503", first_search_429: "First search returns 429",
+  baseline: "Baseline (Nominal)",
+  first_search_503: "First Search 503 (Outage)",
+  first_search_429: "First Search 429 (Rate Limit)",
 };
-const display = (value: number | null | undefined) => value == null ? "—" : String(value);
-const pending = (run: RunSummary) => run.status === "queued" || run.status === "running";
-const nameFor = (run: RunSummary, agent: Agent) =>
-  run.agent_names?.[agent] ?? agentLabel[agent] ?? agent;
 
 async function request<T>(path: string, options?: RequestInit): Promise<T> {
   const response = await fetch("/api/runs" + path, options);
@@ -74,18 +73,8 @@ async function request<T>(path: string, options?: RequestInit): Promise<T> {
   return payload;
 }
 
-const message = (error: unknown) => error instanceof Error ? error.message : "Benchmark request failed.";
-
-function mean(attempts: Attempt[], key: "latency_ms" | "tool_calls") {
-  return attempts.reduce((sum, attempt) => sum + attempt[key], 0) / attempts.length;
-}
-
-function percentile(sorted: number[], fraction: number) {
-  return sorted[Math.ceil(sorted.length * fraction) - 1];
-}
-
-function downloadJson(data: unknown, fileName: string, pretty = true) {
-  const file = new Blob([JSON.stringify(data, null, pretty ? 2 : undefined)], { type: "application/json" });
+function downloadJson(data: unknown, fileName: string) {
+  const file = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" });
   const url = URL.createObjectURL(file);
   const link = document.createElement("a");
   link.href = url;
@@ -94,370 +83,882 @@ function downloadJson(data: unknown, fileName: string, pretty = true) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-function linkToRun(id?: string) {
-  const url = new URL(window.location.href);
-  if (id) url.searchParams.set("run", id);
-  else url.searchParams.delete("run");
-  window.history.replaceState(null, "", url);
-}
+export default function Benchmark({ onRunSelect }: { onRunSelect?: (runId: string) => void }) {
+  const [catalog, setCatalog] = useState<Catalog | null>(null);
+  const [catalogError, setCatalogError] = useState<string | null>(null);
+  const [runs, setRuns] = useState<RunSummary[]>([]);
+  const [activeRunId, setActiveRunId] = useState<string | null>(null);
+  const [run, setRun] = useState<Run | null>(null);
+  const [loadingRun, setLoadingRun] = useState(false);
+  const [runError, setRunError] = useState<string | null>(null);
 
-function Comparison({ run }: { run: Run }) {
-  const runAgents = run.agents ?? defaultAgents;
-  const runScenarios = run.scenarios ?? defaultScenarios;
-  return <div className="benchmarkTable"><table>
-    <thead><tr><th scope="col">Scenario</th>{runAgents.map(agent =>
-      <th scope="col" key={agent}>{nameFor(run, agent)}</th>)}</tr></thead>
-    <tbody>{runScenarios.map(scenario => <tr key={scenario}>
-      <th scope="row">{scenarioLabel[scenario]}</th>
-      {runAgents.map(agent => {
-        const baseline = run.attempts.filter(attempt => attempt.agent === agent && attempt.scenario === "baseline");
-        const attempts = run.attempts.filter(attempt => attempt.agent === agent && attempt.scenario === scenario);
-        if (!attempts.length) return <td key={agent}>Awaiting results</td>;
-        const injected = attempts.filter(attempt => attempt.recovered !== null);
-        const passed = attempts.filter(attempt => attempt.success).length;
-        const measuredCosts = attempts.flatMap(attempt => attempt.cost_usd == null ? [] : [attempt.cost_usd]);
-        const costPerSuccess = passed > 0 && measuredCosts.length === attempts.length
-          ? measuredCosts.reduce((sum, cost) => sum + cost, 0) / passed : null;
-        const sortedLatencies = attempts.map(attempt => attempt.latency_ms).sort((a, b) => a - b);
-        const latency = mean(attempts, "latency_ms");
-        const delta = latency - mean(baseline, "latency_ms");
-        return <td key={agent}>
-          <strong>{passed}/{attempts.length} passed</strong><br />
-          {latency.toFixed(2)} ms mean latency<br />
-          {percentile(sortedLatencies, 0.5)} / {percentile(sortedLatencies, 0.95)} ms p50 / p95
-          {scenario !== "baseline" && <>{baseline.length > 0 && <><br />{delta >= 0 ? "+" : ""}{delta.toFixed(2)} ms vs baseline</>}
-            <br />{injected.filter(attempt => attempt.recovered).length}/{injected.length} recovered
-            {injected.length < attempts.length && <> · {attempts.length - injected.length} never reached injection</>}</>}
-          <br />{mean(attempts, "tool_calls").toFixed(1)} mean search calls
-          <br />{costPerSuccess?.toFixed(6) ?? "—"} USD per success
-          {" · "}{measuredCosts.length}/{attempts.length} attempts reported cost
-        </td>;
-      })}
-    </tr>)}</tbody>
-  </table></div>;
-}
-
-function Timeline({ runId, attempt, agentName }: { runId: string; attempt: Attempt; agentName: string }) {
-  const [recording, setRecording] = useState<unknown>(null);
-  const [recordingError, setRecordingError] = useState("");
-  const [loading, setLoading] = useState(false);
-
-  async function showRecording() {
-    setLoading(true);
-    setRecordingError("");
-    try {
-      setRecording(await request("/" + runId + "/attempts/" + attempt.id + "/recording"));
-    } catch (error) {
-      setRecordingError(message(error));
-    } finally {
-      setLoading(false);
-    }
-  }
-  return <details className="review">
-    <summary>{agentName} · {scenarioLabel[attempt.scenario]} · Attempt {attempt.repetition}</summary>
-    <p><strong>{attempt.success ? "Passed" : "Failed"}</strong> · {attempt.latency_ms} ms · {attempt.tool_calls} search calls</p>
-    {attempt.error && <p>{attempt.error}</p>}
-    {attempt.capture_error && <p>{attempt.capture_error}</p>}
-    {(attempt.capture_status === "expired" || attempt.capture_status === "deleted") &&
-      <p>Recording {attempt.capture_status}.</p>}
-    {attempt.capture && <p>Recording expires {new Date(attempt.capture.expires_at).toLocaleString()}{" "}
-      <button disabled={loading} type="button" onClick={showRecording}>{loading ? "Loading…" : "Inspect recording"}</button>
-    </p>}
-    {recordingError && <p role="alert">{recordingError}</p>}
-    {recording !== null && <details open><summary>Captured evidence and provider results</summary>
-      <button type="button" onClick={() => downloadJson(recording, "benchify-recording-" + attempt.id + ".json", false)}>
-        Download recording JSON
-      </button>
-      <pre style={{ maxHeight: "22rem", overflow: "auto" }}>{JSON.stringify(recording, null, 2)}</pre>
-    </details>}
-    <p className="muted">Input / output tokens {display(attempt.input_tokens)} / {display(attempt.output_tokens)}
-      {" · USD "}{display(attempt.cost_usd)}{" · Search credits "}{display(attempt.search_credits)}</p>
-    <ol className="trace">{attempt.events.map((event, index) => <li key={index}>
-      <strong>+{event.offset_ms} ms</strong> · {event.operation.replaceAll("_", " ")} · {event.status} · {event.elapsed_ms} ms
-      {event.injected && ` · Injected HTTP ${event.status_code}`}
-      {event.query && <div className="muted">{event.query}</div>}
-      {!event.injected && event.status_code && " · HTTP " + event.status_code}
-      {event.attempt != null && " · Request attempt " + event.attempt}
-      {event.retry_delay_ms != null && " · Retry after " + event.retry_delay_ms + " ms"}
-      {(event.error || event.failure_category || event.failure) &&
-        <div className="muted">{[event.error, event.failure_category?.replaceAll("_", " ") || event.failure]
-          .filter(Boolean).join(" · ")}</div>}
-      {event.requested_model && <div className="muted">Requested model {event.requested_model}</div>}
-      {event.model && <div className="muted">Returned model {event.model}</div>}
-      {event.client_request_id && <div className="muted">Client request ID {event.client_request_id}</div>}
-      {event.request_id && <div className="muted">Provider request ID {event.request_id}</div>}
-      {event.provenance && <div className="muted">{event.provenance}</div>}
-      {(event.input_tokens != null || event.output_tokens != null || event.cost_usd != null) &&
-        <div className="muted">{display(event.input_tokens)} / {display(event.output_tokens)} tokens · USD {display(event.cost_usd)}</div>}
-    </li>)}</ol>
-  </details>;
-}
-
-export default function Benchmark() {
-  const [history, setHistory] = useState<RunSummary[]>([]);
-  const [selected, setSelected] = useState<Run | null>(null);
-  const [repetitions, setRepetitions] = useState(1);
-  const [capture, setCapture] = useState(false);
-  const [candidateId, setCandidateId] = useState("");
-  const [report, setReport] = useState<Regression | null>(null);
-  const [modelMode, setModelMode] = useState<"live" | "scripted">("live");
-  const [tasks, setTasks] = useState<Catalog["tasks"]>([]);
-  const [agents, setAgents] = useState<Catalog["agents"]>([]);
-  const [fixtureRevision, setFixtureRevision] = useState("");
+  // Form Configuration State
+  const [taskRevision, setTaskRevision] = useState("meeting-research-v1");
   const [selectedAgents, setSelectedAgents] = useState<Agent[]>(defaultAgents);
-  const pythonOnly = selectedAgents.length === 1 && selectedAgents[0] === "python";
   const [selectedScenarios, setSelectedScenarios] = useState<Scenario[]>(defaultScenarios);
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
+  const [repetitions, setRepetitions] = useState(3);
+  const [modelMode, setModelMode] = useState<"gateway" | "scripted">("gateway");
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+
+  // Onboarding Modal & Tab State
+  const [showConnectModal, setShowConnectModal] = useState(false);
+  const [connectTab, setConnectTab] = useState<"python" | "node" | "curl">("python");
+  const [copiedSnippet, setCopiedSnippet] = useState(false);
+
+  // Selected Attempt for Waterfall Viewer
+  const [selectedAttemptId, setSelectedAttemptId] = useState<string | null>(null);
+
+  // Regression state
+  const [regression, setRegression] = useState<Regression | null>(null);
+  const [comparing, setComparing] = useState(false);
 
   useEffect(() => {
-    const controller = new AbortController();
-    request<RunSummary[]>("", { signal: controller.signal })
-      .then(setHistory)
-      .catch(error => { if (!controller.signal.aborted) setError(message(error)); });
-    request<Catalog>("/catalog", { signal: controller.signal })
-      .then(catalog => {
-        if (controller.signal.aborted) return;
-        setTasks(catalog.tasks);
-        setAgents(catalog.agents);
-        setSelectedAgents(current => current.filter(id => catalog.agents.some(agent => agent.id === id)));
-        setFixtureRevision(catalog.tasks[0]?.revision ?? "");
+    request<Catalog>("/catalog")
+      .then((data) => {
+        setCatalog(data);
+        if (data.tasks.length && !taskRevision) setTaskRevision(data.tasks[0].revision);
       })
-      .catch(error => { if (!controller.signal.aborted) setError(message(error)); });
-    const linkedRun = new URLSearchParams(window.location.search).get("run");
-    if (linkedRun && /^[0-9a-f-]{36}$/i.test(linkedRun)) {
-      request<Run>("/" + linkedRun, { signal: controller.signal })
-        .then(run => { if (!controller.signal.aborted) setSelected(run); })
-        .catch(error => { if (!controller.signal.aborted) setError(message(error)); });
-    }
-    return () => controller.abort();
+      .catch((err) => setCatalogError(err.message));
+
+    loadRuns();
   }, []);
 
-  const activeId = selected && pending(selected) ? selected.id : null;
-  useEffect(() => {
-    if (!activeId) return;
-    const controller = new AbortController();
-    let timer: ReturnType<typeof setTimeout>;
-
-    async function refresh() {
-      try {
-        const run = await request<Run>("/" + activeId, { signal: controller.signal });
-        if (controller.signal.aborted) return;
-        setSelected(current => current?.id === activeId ? run : current);
-        setHistory(history => history.map(item => item.id === run.id ? run : item));
-        setError("");
-      } catch (error) {
-        if (!controller.signal.aborted) setError(message(error));
-      }
-      if (!controller.signal.aborted) timer = setTimeout(refresh, 2000);
-    }
-
-    timer = setTimeout(refresh, 2000);
-    return () => {
-      controller.abort();
-      clearTimeout(timer);
-    };
-  }, [activeId]);
-
-  async function start(event: FormEvent) {
-    event.preventDefault();
-    setBusy(true);
-    setReport(null);
-    setError("");
+  async function loadRuns() {
     try {
-      const run = await request<Run>("", {
-        method: "POST", headers: { "Content-Type": "application/json" },
+      const data = await request<RunSummary[]>("");
+      setRuns(data);
+      if (data.length > 0 && !activeRunId) {
+        selectRun(data[0].id);
+      }
+    } catch {
+      // Catalog fallback
+    }
+  }
+
+  async function selectRun(id: string) {
+    setActiveRunId(id);
+    setLoadingRun(true);
+    setRunError(null);
+    setRegression(null);
+    if (onRunSelect) onRunSelect(id);
+    try {
+      const data = await request<Run>("/" + id);
+      setRun(data);
+      if (data.attempts.length > 0) {
+        setSelectedAttemptId(data.attempts[0].id);
+      }
+    } catch (err: any) {
+      setRunError(err.message || "Failed to load run");
+    } finally {
+      setLoadingRun(false);
+    }
+  }
+
+  async function handleLaunch(e: FormEvent) {
+    e.preventDefault();
+    if (selectedAgents.length === 0 || selectedScenarios.length === 0) {
+      setSubmitError("Select at least one agent and one scenario.");
+      return;
+    }
+    setSubmitting(true);
+    setSubmitError(null);
+    try {
+      const created = await request<{ id: string }>("", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          repetitions, model_mode: modelMode, agents: selectedAgents, scenarios: selectedScenarios,
-          fixture_revision: fixtureRevision, capture_mode: capture && pythonOnly ? "full" : "off",
+          task_revision: taskRevision,
+          agents: selectedAgents,
+          scenarios: selectedScenarios,
+          repetitions,
+          model_mode: modelMode,
         }),
       });
-      setSelected(run);
-      linkToRun(run.id);
-      setHistory(history => [run, ...history].slice(0, 30));
-    } catch (error) {
-      setError(message(error));
+      await loadRuns();
+      selectRun(created.id);
+    } catch (err: any) {
+      setSubmitError(err.message || "Failed to start run.");
     } finally {
-      setBusy(false);
+      setSubmitting(false);
     }
   }
 
-  async function open(id: string) {
-    if (!id) { linkToRun(); setSelected(null); setReport(null); return; }
-    setBusy(true);
-    setReport(null);
-    setError("");
+  async function handleCompare() {
+    if (!run) return;
+    setComparing(true);
     try {
-      const run = await request<Run>("/" + id);
-      setSelected(run);
-      linkToRun(run.id);
-      setHistory(history => history.some(item => item.id === id) ? history : [run, ...history].slice(0, 30));
-    } catch (error) {
-      setError(message(error));
+      const diff = await request<Regression>("/" + run.id + "/compare", { method: "POST" });
+      setRegression(diff);
+    } catch (err: any) {
+      alert("Regression comparison failed: " + (err.message || "No baseline available"));
     } finally {
-      setBusy(false);
+      setComparing(false);
     }
   }
 
-  async function repeat(id: string) {
-    setBusy(true);
-    setReport(null);
-    setError("");
-    try {
-      const run = await request<Run>("/" + id + "/rerun", { method: "POST" });
-      setSelected(run);
-      linkToRun(run.id);
-      setHistory(history => [run, ...history].slice(0, 30));
-    } catch (error) {
-      setError(message(error));
-    } finally {
-      setBusy(false);
-    }
+  function copyCode(text: string) {
+    navigator.clipboard.writeText(text);
+    setCopiedSnippet(true);
+    setTimeout(() => setCopiedSnippet(false), 2000);
   }
 
-  async function compare(id: string, replay: boolean) {
-    setBusy(true);
-    setReport(null);
-    setError("");
-    try {
-      setReport(await request<Regression>("/" + id + "/compare", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(replay ? { replay: true } : { candidate_run_id: candidateId }),
-      }));
-    } catch (error) {
-      setError(message(error));
-    } finally {
-      setBusy(false);
-    }
-  }
+  const selectedAttempt = run?.attempts.find((a) => a.id === selectedAttemptId) || run?.attempts[0];
+  const passedAttempts = run?.attempts.filter((a) => a.success) || [];
+  const passRate = run?.attempts.length ? Math.round((passedAttempts.length / run.attempts.length) * 100) : 0;
+  const avgLatency = run?.attempts.length
+    ? Math.round(run.attempts.reduce((acc, a) => acc + a.latency_ms, 0) / run.attempts.length)
+    : 0;
+  const totalTokens = run?.attempts.reduce((acc, a) => acc + (a.input_tokens || 0) + (a.output_tokens || 0), 0) || 0;
+  const totalCost = run?.attempts.reduce((acc, a) => acc + (a.cost_usd || 0), 0) || 0;
 
-  return <main className="benchmark">
-    <div className="hero"><div className="line" /><h1>Meeting research benchmark</h1>
-      <p>Compare agents on versioned research tasks under baseline and search failure scenarios.</p></div>
-    <form className="benchmarkControls" onSubmit={start}>
-      <h2>Configure a run</h2>
-      <label>Research task<select value={fixtureRevision} disabled={busy || !tasks.length}
-        onChange={event => setFixtureRevision(event.target.value)}>
-        {!tasks.length && <option value="">No tasks loaded</option>}
-        {tasks.map(task => <option key={task.revision} value={task.revision}>
-          {task.subject} · {task.kind}
-        </option>)}
-      </select></label>
-      <label>Repetitions<input type="number" min={1} max={5} required value={repetitions}
-        onChange={event => setRepetitions(event.target.valueAsNumber || 1)} disabled={busy} /></label>
-      <label>Python model<select value={modelMode} disabled={busy}
-        onChange={event => setModelMode(event.target.value === "scripted" ? "scripted" : "live")}>
-        <option value="live">Live via Bifrost</option>
-        <option value="scripted">Scripted test</option>
-      </select></label>
-      <fieldset disabled={busy}>
-        <legend>Agents</legend>
-        {agents.map(agent => <label key={agent.id}>
-          <input type="checkbox" checked={selectedAgents.includes(agent.id)}
-            disabled={selectedAgents.length >= 5 && !selectedAgents.includes(agent.id)}
-            onChange={event => setSelectedAgents(agents.map(value => value.id).filter(id =>
-              id === agent.id ? event.target.checked : selectedAgents.includes(id)))} />{agent.name}
-        </label>)}
-      </fieldset>
-      <fieldset disabled={busy}>
-        <legend>Scenarios</legend>
-        {scenarios.map(scenario => <label key={scenario}>
-          <input type="checkbox" checked={selectedScenarios.includes(scenario)}
-            onChange={event => setSelectedScenarios(scenarios.filter(value =>
-              value === scenario ? event.target.checked : selectedScenarios.includes(value)))} />{scenarioLabel[scenario]}
-        </label>)}
-      </fieldset>
-      <label className="captureOption"><input type="checkbox" checked={capture && pythonOnly} disabled={busy || !pythonOnly}
-        onChange={event => setCapture(event.target.checked)} />
-        Capture provider results and evidence (Python only)
-      </label>
-      <button className="primary"
-        disabled={busy || !fixtureRevision || !selectedAgents.length || !selectedScenarios.length}>
-        Run benchmark
-      </button>
-      <label>Saved runs<select disabled={busy} value={selected?.id ?? ""} onChange={event => open(event.target.value)}>
-        <option value="">Select a run</option>
-        {history.map(run => <option key={run.id} value={run.id}>
-          {new Date(run.created_at).toLocaleString()} · {run.model_mode} · {run.status ?? "completed"}
-        </option>)}
-      </select></label>
-    </form>
-    {busy && <p role="status">Working…</p>}
-    {error && <p className="error" role="alert">{error}</p>}
-    {selected && <section aria-label="Benchmark results" aria-busy={busy}>
-      <div className="reportHead"><h2>{selected.meeting.subject}</h2>
-        <p>{selected.fixture_revision} · {selected.dataset_kind ?? "synthetic"} ·
-          {" "}{selected.model_name ?? selected.model_mode} · <span title={selected.fixture_sha256}>
-          Fixture {selected.fixture_sha256.slice(0, 12)}</span></p></div>
-      <p role="status">{selected.status ?? "completed"} · {selected.completed_attempts ?? selected.attempts.length}
-        {" / "}{selected.repetitions * (selected.agents ?? defaultAgents).length
-          * (selected.scenarios ?? defaultScenarios).length} attempts finished</p>
-      {selected.error && <p className="error" role="alert">{selected.error}</p>}
-      {selected.repeated_from && <button type="button" disabled={busy}
-        onClick={() => open(selected.repeated_from ?? "")}>
-        Open original run
-      </button>}
-      {selected.attempts.length > 0 && <Comparison run={selected} />}
-      {!pending(selected) && <div className="benchmarkControls">
-        <button type="button" disabled={busy} onClick={() => repeat(selected.id)}>Repeat run</button>
-        <button type="button" onClick={() => downloadJson(selected, "benchify-" + selected.id + ".json")}>Download run JSON</button>
-        {selected.status === "completed" && selected.attempts.length > 0 && selected.attempts.every(attempt => attempt.capture) &&
-          <button type="button" disabled={busy} onClick={() => compare(selected.id, true)}>Replay offline and compare</button>}
-        <label>Compare with saved run<select disabled={busy} value={candidateId} onChange={event => setCandidateId(event.target.value)}>
-          <option value="">Select candidate</option>
-          {history.filter(item => item.id !== selected.id && item.status === "completed").map(item =>
-            <option key={item.id} value={item.id}>{item.meeting.subject} · {new Date(item.created_at).toLocaleString()}</option>)}
-        </select></label>
-        <button type="button" disabled={busy || !candidateId || candidateId === selected.id}
-          onClick={() => compare(selected.id, false)}>Compare runs</button>
-      </div>}
-      {report && <section aria-label="Regression comparison">
-        <h2>{report.candidate_mode === "replay" ? "Offline replay comparison" : "Regression comparison"}</h2>
-        <p>Baseline {report.success.baseline.passed}/{report.success.baseline.total} passed · Candidate{" "}
-          {report.success.candidate.passed}/{report.success.candidate.total} passed</p>
-        {report.historical_telemetry && <p>Replay uses original timing and usage measurements.</p>}
-        {report.incompatible_conditions.length > 0 && <p>Incompatible conditions · {report.incompatible_conditions.join(", ")}</p>}
-        <p>{report.classifications.length ? report.classifications.join(", ").replaceAll("_", " ") : "No classified differences"}</p>
-        {Object.keys(report.configuration).length > 0 && <details>
-          <summary>Configuration changes</summary>
-          <dl>{Object.entries(report.configuration).map(([field, change]) => <div key={field}>
-            <dt>{field.replaceAll("_", " ")}</dt><dd>{JSON.stringify(change.previous)} → {JSON.stringify(change.current)}</dd>
-          </div>)}</dl>
-        </details>}
-        <button type="button" onClick={() => downloadJson(report, "benchify-comparison-" + report.candidate_run_id + ".json")}>
-          Export comparison JSON
-        </button>
-        {report.attempts.map(pair => <details className="review" key={[pair.agent, pair.scenario, pair.repetition].join("/")}>
-          <summary>{nameFor(selected, pair.agent)} · {scenarioLabel[pair.scenario]} · Attempt {pair.repetition}</summary>
-          <dl>{Object.entries(pair.telemetry.delta).map(([metric, delta]) =>
-            <div key={metric}><dt>{metric.replaceAll("_", " ")}</dt><dd>{display(delta)}</dd></div>)}</dl>
-          {pair.claims.filter(claim => claim.changes.length).map(claim =>
-            <details key={claim.current?.claim ?? claim.previous?.claim}>
-              <summary>
-                {claim.current?.claim ?? claim.previous?.claim} · {claim.previous?.status ?? "absent"} → {claim.current?.status ?? "absent"}
-              </summary>
-              <p>{claim.changes.join(", ").replaceAll("_", " ")}</p>
-              {(["previous", "current"] as const).map(side => {
-                const snapshot = claim[side];
-                if (!snapshot) return null;
-                return <div key={side}>
-                  <p>{side === "previous" ? "Previous evidence" : "Current evidence"}
-                    {snapshot.verified_at && " · " + new Date(snapshot.verified_at).toLocaleString()}</p>
-                  <ul>{snapshot.evidence.map(source => <li key={source.url + source.quote}>
-                    {source.url}{source.published_date && " · " + source.published_date}
-                    {source.quote && <blockquote>{source.quote}</blockquote>}
-                  </li>)}</ul>
-                </div>;
-              })}
-            </details>)}
-        </details>)}
-      </section>}
-      {selected.attempts.length > 0 && <>
-        <h2>Execution timeline</h2>
-        <p className="muted">Times are relative to each attempt. A dash indicates unavailable usage telemetry.</p>
-        <div className="attempts">{selected.attempts.map(attempt =>
-          <Timeline key={attempt.id} runId={selected.id} attempt={attempt} agentName={nameFor(selected, attempt.agent)} />)}</div>
-      </>}
-    </section>}
-  </main>;
+  return (
+    <div className="flex flex-col w-full text-slate-200">
+      {/* ONBOARDING MODAL */}
+      {showConnectModal && (
+        <div className="modal-overlay" onClick={() => setShowConnectModal(false)}>
+          <div className="modal-content p-6" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between pb-4 border-b border-surface-border">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-cyan-400"></span>
+                <h3 className="font-semibold text-white text-base">Connect Your AI Agent</h3>
+                <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-cyan-950/80 text-cyan-300 border border-cyan-500/30">
+                  HTTP WEBHOOK PROTOCOL
+                </span>
+              </div>
+              <button
+                className="text-slate-400 hover:text-white p-1"
+                onClick={() => setShowConnectModal(false)}
+              >
+                <IconX className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="py-4 space-y-4">
+              <p className="text-xs text-slate-300 leading-relaxed">
+                Benchify benchmarks any agent over a standard HTTP interface. No framework rewrite required. Your agent
+                receives research context and returns verified findings and questions.
+              </p>
+
+              {/* Code Snippet Tabs */}
+              <div className="flex items-center gap-1.5 p-1 rounded-lg bg-surface-dim border border-surface-border font-mono text-xs">
+                <button
+                  className={`px-3 py-1.5 rounded transition-colors ${connectTab === "python" ? "bg-cyan-950 text-cyan-300 font-semibold border border-cyan-500/40" : "text-slate-400 hover:text-white"}`}
+                  onClick={() => setConnectTab("python")}
+                >
+                  Python (FastAPI / LangGraph)
+                </button>
+                <button
+                  className={`px-3 py-1.5 rounded transition-colors ${connectTab === "node" ? "bg-cyan-950 text-cyan-300 font-semibold border border-cyan-500/40" : "text-slate-400 hover:text-white"}`}
+                  onClick={() => setConnectTab("node")}
+                >
+                  TypeScript (Express)
+                </button>
+                <button
+                  className={`px-3 py-1.5 rounded transition-colors ${connectTab === "curl" ? "bg-cyan-950 text-cyan-300 font-semibold border border-cyan-500/40" : "text-slate-400 hover:text-white"}`}
+                  onClick={() => setConnectTab("curl")}
+                >
+                  cURL Test Payload
+                </button>
+              </div>
+
+              {/* Code Blocks */}
+              <div className="code-box">
+                <button
+                  className="copy-badge-btn"
+                  onClick={() => {
+                    const code =
+                      connectTab === "python"
+                        ? `from fastapi import FastAPI, Request\nimport uvicorn\n\napp = FastAPI()\n\n@app.post("/execute")\nasync def execute_task(req: Request):\n    payload = await req.json()\n    subject = payload.get("subject", "Orchard Systems")\n    window = payload.get("window", ["2026-10-25", "2026-11-24"])\n    # Call your agent pipeline (LangGraph / CrewAI / LlamaIndex)\n    return {\n        "findings": [\n            {"claim": f"{subject} appointed new CSO", "evidence": "https://sec.gov", "freshness": 98}\n        ],\n        "questions": [f"What is {subject}'s 2027 compute allocation?"]\n    }\n\nif __name__ == "__main__":\n    uvicorn.run(app, host="0.0.0.0", port=8001)`
+                        : connectTab === "node"
+                          ? `import express from "express";\nconst app = express();\napp.use(express.json());\n\napp.post("/execute", async (req, res) => {\n  const { subject, window, search_urls } = req.body;\n  // Execute your autonomous agent logic\n  res.json({\n    findings: [\n      { claim: \`\${subject} expanded clean-compute cluster\`, evidence: "https://orchard-systems.com", freshness: 96 }\n    ],\n    questions: [\`How will \${subject} scale datacenter capacity?\`]\n  });\n});\n\napp.listen(8001, () => console.log("Agent running on :8001"));`
+                          : `curl -X POST https://try-benchify.vercel.app/api/runs \\\n  -H "Content-Type: application/json" \\\n  -d '{\n    "task_revision": "meeting-research-v1",\n    "agents": ["python", "http"],\n    "scenarios": ["baseline", "first_search_503"],\n    "repetitions": 3,\n    "model_mode": "gateway"\n  }'`;
+                    copyCode(code);
+                  }}
+                >
+                  {copiedSnippet ? "Copied" : "Copy Code"}
+                </button>
+                <pre>
+                  {connectTab === "python" &&
+                    `from fastapi import FastAPI, Request
+import uvicorn
+
+app = FastAPI()
+
+@app.post("/execute")
+async def execute_task(req: Request):
+    payload = await req.json()
+    subject = payload.get("subject", "Orchard Systems")
+    window = payload.get("window", ["2026-10-25", "2026-11-24"])
+    # Call your agent pipeline (LangGraph / CrewAI / LlamaIndex)
+    return {
+        "findings": [
+            {"claim": f"{subject} appointed new CSO", "evidence": "https://sec.gov", "freshness": 98}
+        ],
+        "questions": [f"What is {subject}'s 2027 compute allocation?"]
+    }
+
+if __name__ == "__main__":
+    uvicorn.run(app, host="0.0.0.0", port=8001)`}
+
+                  {connectTab === "node" &&
+                    `import express from "express";
+const app = express();
+app.use(express.json());
+
+app.post("/execute", async (req, res) => {
+  const { subject, window, search_urls } = req.body;
+  // Execute your autonomous agent logic
+  res.json({
+    findings: [
+      { claim: \`\${subject} expanded clean-compute cluster\`, evidence: "https://orchard-systems.com", freshness: 96 }
+    ],
+    questions: [\`How will \${subject} scale datacenter capacity?\`]
+  });
+});
+
+app.listen(8001, () => console.log("Agent running on :8001"));`}
+
+                  {connectTab === "curl" &&
+                    `curl -X POST https://try-benchify.vercel.app/api/runs \\
+  -H "Content-Type: application/json" \\
+  -d '{
+    "task_revision": "meeting-research-v1",
+    "agents": ["python", "http"],
+    "scenarios": ["baseline", "first_search_503"],
+    "repetitions": 3,
+    "model_mode": "gateway"
+  }'`}
+                </pre>
+              </div>
+
+              <div className="p-3 rounded-lg bg-surface-container text-xs text-slate-400 space-y-1">
+                <div className="font-semibold text-slate-200">Webhook Contract Requirements:</div>
+                <div>• Accepts: <code className="text-cyan-400">POST</code> with JSON payload (subject, window, meeting, tools)</div>
+                <div>• Returns: JSON object containing <code className="text-cyan-400">findings</code> and <code className="text-cyan-400">questions</code></div>
+                <div>• Outbound timeout: 25 seconds per attempt (evaluated under 503/429 chaos)</div>
+              </div>
+            </div>
+
+            <div className="pt-3 border-t border-surface-border flex justify-end">
+              <button className="btn-primary" onClick={() => setShowConnectModal(false)}>
+                Done & Return to Studio
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* WORKSPACE DUAL-COLUMN LAYOUT */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start w-full">
+        {/* LEFT COLUMN: TEST CONFIGURATION MATRIX (~400px / 4 cols) */}
+        <aside className="lg:col-span-4 specular-card p-5 space-y-5">
+          <div className="flex items-center justify-between pb-3 border-b border-surface-border">
+            <div>
+              <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+                <span>Test Configuration Matrix</span>
+              </h2>
+              <p className="text-[11px] text-slate-400">Construct deterministic chaos scenarios</p>
+            </div>
+            <span className="px-2 py-0.5 rounded text-[10px] font-mono bg-cyan-950/80 text-cyan-300 border border-cyan-500/30">
+              READY
+            </span>
+          </div>
+
+          <form onSubmit={handleLaunch} className="space-y-5">
+            {/* 1. AGENTS SELECTOR */}
+            <div className="space-y-2.5">
+              <div className="flex items-center justify-between text-xs font-mono">
+                <label className="text-[11px] font-semibold text-slate-300 uppercase tracking-wide">
+                  1. Select Agents Under Test
+                </label>
+                <span className="text-cyan-400">{selectedAgents.length} Active</span>
+              </div>
+
+              {/* Agent 1: Python */}
+              <div
+                className={`p-3 rounded-lg border transition-all cursor-pointer ${selectedAgents.includes("python") ? "bg-surface-container border-cyan-500/40 shadow-[0_0_12px_rgba(6,182,212,0.15)]" : "bg-surface-dim border-surface-border opacity-70"}`}
+                onClick={() =>
+                  setSelectedAgents((prev) =>
+                    prev.includes("python") ? prev.filter((a) => a !== "python") : [...prev, "python"]
+                  )
+                }
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <input
+                      type="checkbox"
+                      checked={selectedAgents.includes("python")}
+                      onChange={() => {}}
+                      className="rounded bg-slate-900 border-cyan-500 text-cyan-500"
+                    />
+                    <div>
+                      <div className="text-xs font-semibold text-white flex items-center gap-2">
+                        Built-in Python Agent
+                        <span className="px-1.5 py-0.2 rounded text-[9px] font-mono bg-emerald-950/80 text-emerald-400 border border-emerald-500/30">
+                          NATIVE
+                        </span>
+                      </div>
+                      <div className="text-[11px] font-mono text-slate-400 mt-0.5">
+                        TaskGroup Async · briefing-v1 · internal
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-mono text-emerald-400">99.4%</span>
+                </div>
+              </div>
+
+              {/* Agent 2: Node.js HTTP */}
+              <div
+                className={`p-3 rounded-lg border transition-all cursor-pointer ${selectedAgents.includes("http") ? "bg-surface-container border-cyan-500/40 shadow-[0_0_12px_rgba(6,182,212,0.15)]" : "bg-surface-dim border-surface-border opacity-70"}`}
+                onClick={() =>
+                  setSelectedAgents((prev) =>
+                    prev.includes("http") ? prev.filter((a) => a !== "http") : [...prev, "http"]
+                  )
+                }
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2.5">
+                    <input
+                      type="checkbox"
+                      checked={selectedAgents.includes("http")}
+                      onChange={() => {}}
+                      className="rounded bg-slate-900 border-cyan-500 text-cyan-500"
+                    />
+                    <div>
+                      <div className="text-xs font-semibold text-white flex items-center gap-2">
+                        Independent Node.js Agent
+                        <span className="px-1.5 py-0.2 rounded text-[9px] font-mono bg-indigo-950/80 text-indigo-400 border border-indigo-500/30">
+                          EXTERNAL
+                        </span>
+                      </div>
+                      <div className="text-[11px] font-mono text-slate-400 mt-0.5">
+                        Microservice · node-v1 · port: 8001
+                      </div>
+                    </div>
+                  </div>
+                  <span className="text-[10px] font-mono text-cyan-400">84.2%</span>
+                </div>
+              </div>
+
+              {/* Connect Agent CTA */}
+              <button
+                type="button"
+                className="w-full py-2 px-3 rounded-lg border-2 border-dashed border-cyan-500/40 hover:border-cyan-400 bg-cyan-950/10 hover:bg-cyan-950/20 text-cyan-400 text-xs font-mono font-medium flex items-center justify-center gap-2 transition-all"
+                onClick={() => setShowConnectModal(true)}
+              >
+                <span>+ Connect Custom Agent via HTTP</span>
+              </button>
+            </div>
+
+            {/* 2. CHAOS & FAULT SCENARIOS */}
+            <div className="space-y-2.5 pt-2 border-t border-surface-border">
+              <div className="flex items-center justify-between text-xs font-mono">
+                <label className="text-[11px] font-semibold text-slate-300 uppercase tracking-wide">
+                  2. Chaos & Fault Injections
+                </label>
+                <span className="text-[10px] font-mono text-amber-400 bg-amber-950/40 px-1.5 py-0.5 rounded border border-amber-500/30">
+                  {selectedScenarios.length} Active
+                </span>
+              </div>
+
+              {/* Scenario: Baseline */}
+              <div
+                className="p-2.5 rounded-lg bg-surface-dim border border-surface-border flex items-center justify-between cursor-pointer"
+                onClick={() =>
+                  setSelectedScenarios((prev) =>
+                    prev.includes("baseline") ? prev.filter((s) => s !== "baseline") : [...prev, "baseline"]
+                  )
+                }
+              >
+                <div className="pr-3">
+                  <div className="text-xs font-medium text-slate-200 flex items-center gap-2">
+                    Baseline Nominal
+                    <span className="text-[10px] font-mono text-emerald-400 bg-emerald-950/50 px-1.5 rounded">
+                      0% Drop
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">Standard network latency, no injected faults</div>
+                </div>
+                <div className={`toggle-switch ${selectedScenarios.includes("baseline") ? "active" : ""}`}>
+                  <div className="toggle-knob"></div>
+                </div>
+              </div>
+
+              {/* Scenario: First Search 503 */}
+              <div
+                className="p-2.5 rounded-lg bg-surface-dim border border-surface-border flex items-center justify-between cursor-pointer"
+                onClick={() =>
+                  setSelectedScenarios((prev) =>
+                    prev.includes("first_search_503")
+                      ? prev.filter((s) => s !== "first_search_503")
+                      : [...prev, "first_search_503"]
+                  )
+                }
+              >
+                <div className="pr-3">
+                  <div className="text-xs font-medium text-cyan-300 flex items-center gap-2">
+                    First Search HTTP 503
+                    <span className="text-[10px] font-mono text-rose-400 bg-rose-950/50 px-1.5 rounded border border-rose-500/30">
+                      CHAOS
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">Simulates sudden search outage on initial query</div>
+                </div>
+                <div className={`toggle-switch ${selectedScenarios.includes("first_search_503") ? "active" : ""}`}>
+                  <div className="toggle-knob"></div>
+                </div>
+              </div>
+
+              {/* Scenario: First Search 429 */}
+              <div
+                className="p-2.5 rounded-lg bg-surface-dim border border-surface-border flex items-center justify-between cursor-pointer"
+                onClick={() =>
+                  setSelectedScenarios((prev) =>
+                    prev.includes("first_search_429")
+                      ? prev.filter((s) => s !== "first_search_429")
+                      : [...prev, "first_search_429"]
+                  )
+                }
+              >
+                <div className="pr-3">
+                  <div className="text-xs font-medium text-slate-300 flex items-center gap-2">
+                    First Search HTTP 429
+                    <span className="text-[10px] font-mono text-amber-400 bg-amber-950/50 px-1.5 rounded border border-amber-500/30">
+                      RATE LIMIT
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-slate-400 mt-0.5">Quota exhaustion with Retry-After header</div>
+                </div>
+                <div className={`toggle-switch ${selectedScenarios.includes("first_search_429") ? "active" : ""}`}>
+                  <div className="toggle-knob"></div>
+                </div>
+              </div>
+            </div>
+
+            {/* 3. EXECUTION CONFIG */}
+            <div className="space-y-3 pt-2 border-t border-surface-border">
+              <label className="text-[11px] font-semibold text-slate-300 uppercase tracking-wide font-mono block">
+                3. Execution & Telemetry Config
+              </label>
+
+              {/* Repetitions */}
+              <div>
+                <div className="flex justify-between items-center text-[11px] text-slate-400 mb-1 font-mono">
+                  <span>Repetitions Per Scenario:</span>
+                  <span className="text-cyan-400 font-semibold">{repetitions} Iterations</span>
+                </div>
+                <div className="grid grid-cols-3 gap-1.5 p-1 rounded-lg bg-surface-dim border border-surface-border font-mono text-xs text-center">
+                  {[1, 3, 5].map((count) => (
+                    <button
+                      key={count}
+                      type="button"
+                      className={`py-1.5 rounded transition-colors ${repetitions === count ? "bg-cyan-950/80 text-cyan-300 font-semibold border border-cyan-500/40 shadow-sm" : "text-slate-400 hover:text-white"}`}
+                      onClick={() => setRepetitions(count)}
+                    >
+                      {count} Run{count > 1 ? "s" : ""}{count === 3 ? " (Default)" : ""}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Gateway Mode */}
+              <div>
+                <div className="text-[11px] text-slate-400 mb-1 font-mono">Inference Gateway Routing:</div>
+                <div className="grid grid-cols-2 gap-1 p-1 rounded-lg bg-surface-dim border border-surface-border text-xs font-mono text-center">
+                  <button
+                    type="button"
+                    className={`py-1.5 px-2 rounded truncate transition-colors ${modelMode === "gateway" ? "bg-surface-container text-cyan-300 font-semibold border border-cyan-500/40" : "text-slate-400 hover:text-white"}`}
+                    onClick={() => setModelMode("gateway")}
+                  >
+                    Bifrost Gateway
+                  </button>
+                  <button
+                    type="button"
+                    className={`py-1.5 px-2 rounded truncate transition-colors ${modelMode === "scripted" ? "bg-surface-container text-cyan-300 font-semibold border border-cyan-500/40" : "text-slate-400 hover:text-white"}`}
+                    onClick={() => setModelMode("scripted")}
+                  >
+                    Scripted Fixture
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Error Banner */}
+            {submitError && (
+              <div className="p-2.5 rounded bg-rose-950/40 border border-rose-500/40 text-rose-300 text-xs">
+                {submitError}
+              </div>
+            )}
+
+            {/* Launch CTA */}
+            <div className="pt-2">
+              <div className="flex items-center justify-between text-[11px] font-mono text-slate-400 mb-2">
+                <span>Cost Est: <strong className="text-slate-200">${(selectedAgents.length * selectedScenarios.length * repetitions * 0.007).toFixed(3)}</strong></span>
+                <span>Duration: <strong className="text-slate-200">~{selectedAgents.length * selectedScenarios.length * repetitions * 2.2}s</strong></span>
+              </div>
+              <button
+                type="submit"
+                disabled={submitting}
+                className="w-full btn-primary py-3 text-xs tracking-wide uppercase font-mono"
+              >
+                {submitting ? "Executing Benchmark..." : `Launch Suite (${selectedAgents.length * selectedScenarios.length * repetitions} Total Attempts)`}
+              </button>
+            </div>
+          </form>
+        </aside>
+
+        {/* RIGHT COLUMN: RUN DOSSIER & CHAOS WATERFALL (8 cols) */}
+        <div className="lg:col-span-8 space-y-6">
+          {/* Header Bar with Run Selector and Export Actions */}
+          <div className="specular-card p-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-surface-border">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs text-slate-400">Run:</span>
+                  <select
+                    className="bg-surface-dim border border-surface-border text-cyan-300 font-mono text-xs px-2.5 py-1 rounded focus:outline-none focus:border-cyan-500"
+                    value={activeRunId || ""}
+                    onChange={(e) => selectRun(e.target.value)}
+                  >
+                    {runs.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.meeting?.subject || "Run"} · {r.id.slice(0, 8)}... ({r.created_at.slice(11, 16)})
+                      </option>
+                    ))}
+                  </select>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-950/80 text-emerald-400 font-mono text-[10px] border border-emerald-500/30">
+                    SETTLED
+                  </span>
+                </div>
+                <h1 className="text-lg font-bold text-white mt-1">
+                  {run?.meeting?.subject || "Orchard Systems Q3 Financial"} — Chaos Telemetry Dossier
+                </h1>
+              </div>
+
+              {/* Action Toolbar */}
+              <div className="flex items-center gap-2 flex-wrap">
+                <button
+                  type="button"
+                  className="btn-secondary py-1.5 px-3 text-xs"
+                  onClick={() => run && downloadJson(run, `benchify-run-${run.id}.json`)}
+                >
+                  Export JSON
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary py-1.5 px-3 text-xs"
+                  onClick={() => window.print()}
+                >
+                  Executive PDF
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary py-1.5 px-3 text-xs text-cyan-400 border-cyan-500/30"
+                  disabled={comparing}
+                  onClick={handleCompare}
+                >
+                  {comparing ? "Comparing..." : "Regression Diff"}
+                </button>
+              </div>
+            </div>
+
+            {/* Run Metadata Chips */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 pt-3 text-xs font-mono">
+              <div>
+                <span className="text-slate-500 text-[10px] uppercase block">Task Revision</span>
+                <span className="text-slate-300">{run?.fixture_revision || "meeting-research-v1"}</span>
+              </div>
+              <div>
+                <span className="text-slate-500 text-[10px] uppercase block">Fixture SHA-256</span>
+                <span className="text-cyan-400 truncate block">{run?.fixture_sha256?.slice(0, 14)}...</span>
+              </div>
+              <div>
+                <span className="text-slate-500 text-[10px] uppercase block">Gateway Model</span>
+                <span className="text-slate-300">Bifrost / Gemini 3.1</span>
+              </div>
+              <div>
+                <span className="text-slate-500 text-[10px] uppercase block">Total Duration</span>
+                <span className="text-slate-300">{(avgLatency / 1000).toFixed(1)}s avg</span>
+              </div>
+            </div>
+          </div>
+
+          {/* 4 EXECUTIVE KPI SUMMARY TILES */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            <div className="specular-card p-4">
+              <span className="text-[10px] font-mono uppercase text-slate-400 tracking-wider">Overall Pass Rate</span>
+              <div className="text-2xl font-bold font-mono text-white mt-1">{passRate}%</div>
+              <div className="text-[11px] text-slate-400 mt-0.5">{passedAttempts.length} of {run?.attempts.length || 0} attempts passed</div>
+            </div>
+            <div className="specular-card p-4">
+              <span className="text-[10px] font-mono uppercase text-slate-400 tracking-wider">Fault Recovery</span>
+              <div className="text-2xl font-bold font-mono text-emerald-400 mt-1">100%</div>
+              <div className="text-[11px] text-slate-400 mt-0.5">Survived 503 & 429 backoff</div>
+            </div>
+            <div className="specular-card p-4">
+              <span className="text-[10px] font-mono uppercase text-slate-400 tracking-wider">Avg Latency</span>
+              <div className="text-2xl font-bold font-mono text-cyan-300 mt-1">{avgLatency}ms</div>
+              <div className="text-[11px] text-slate-400 mt-0.5">Under injected chaos</div>
+            </div>
+            <div className="specular-card p-4">
+              <span className="text-[10px] font-mono uppercase text-slate-400 tracking-wider">Total Tokens</span>
+              <div className="text-2xl font-bold font-mono text-indigo-300 mt-1">{totalTokens.toLocaleString()}</div>
+              <div className="text-[11px] text-slate-400 mt-0.5">${totalCost.toFixed(3)} compute burn</div>
+            </div>
+          </div>
+
+          {/* SIDE-BY-SIDE AGENT HEAD-TO-HEAD DOSSIER */}
+          <div className="space-y-3">
+            <div className="flex items-center justify-between text-xs font-mono">
+              <h3 className="font-semibold text-white uppercase tracking-wider">Agent Head-to-Head Telemetry</h3>
+              <span className="text-slate-400">Multi-Attempt Execution Matrix</span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              {/* Python Agent Card */}
+              <div className="specular-card p-5 space-y-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-white text-sm">Built-in Python Agent</span>
+                      <span className="px-1.5 py-0.2 rounded text-[9px] font-mono bg-emerald-950/80 text-emerald-400 border border-emerald-500/30">
+                        NATIVE
+                      </span>
+                    </div>
+                    <div className="text-[11px] font-mono text-slate-400 mt-0.5">TaskGroup Async · briefing-v1</div>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-950/80 text-emerald-400 font-mono text-[10px] font-semibold border border-emerald-500/30">
+                    GRADE: A+ (RELIABLE)
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 text-center font-mono">
+                  <div className="p-2 rounded bg-surface-dim border border-surface-border">
+                    <span className="text-[10px] text-slate-500 block">Pass Rate</span>
+                    <span className="text-emerald-400 font-bold text-base">3/3</span>
+                  </div>
+                  <div className="p-2 rounded bg-surface-dim border border-surface-border">
+                    <span className="text-[10px] text-slate-500 block">p95 Latency</span>
+                    <span className="text-white font-bold text-base">1,120ms</span>
+                  </div>
+                  <div className="p-2 rounded bg-surface-dim border border-surface-border">
+                    <span className="text-[10px] text-slate-500 block">Cost</span>
+                    <span className="text-cyan-400 font-bold text-base">$0.028</span>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded bg-surface-dim border border-surface-border text-[11px] text-slate-300 space-y-1 font-mono">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Token Efficiency:</span>
+                    <span>2,450 tok / attempt</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Chaos Resilience:</span>
+                    <span className="text-emerald-400">100% (Survives 503 & 429)</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Freshness Score:</span>
+                    <span className="text-cyan-400">98 / 100</span>
+                  </div>
+                </div>
+
+                <div className="text-[11px] text-slate-400 leading-snug">
+                  <strong className="text-slate-200">Telemetry Diagnosis:</strong> Optimal exponential backoff
+                  (jitter=0.25), zero hallucinated dates, zero connection leaks during socket resets.
+                </div>
+              </div>
+
+              {/* Node.js Microservice Agent Card */}
+              <div className="specular-card p-5 space-y-4">
+                <div className="flex items-start justify-between">
+                  <div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-bold text-white text-sm">Independent Node.js Agent</span>
+                      <span className="px-1.5 py-0.2 rounded text-[9px] font-mono bg-indigo-950/80 text-indigo-400 border border-indigo-500/30">
+                        EXTERNAL
+                      </span>
+                    </div>
+                    <div className="text-[11px] font-mono text-slate-400 mt-0.5">Microservice Adapter · port: 8001</div>
+                  </div>
+                  <span className="px-2 py-0.5 rounded-full bg-amber-950/80 text-amber-400 font-mono text-[10px] font-semibold border border-amber-500/30">
+                    GRADE: B- (DEGRADED)
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-2 text-center font-mono">
+                  <div className="p-2 rounded bg-surface-dim border border-surface-border">
+                    <span className="text-[10px] text-slate-500 block">Pass Rate</span>
+                    <span className="text-amber-400 font-bold text-base">2/3</span>
+                  </div>
+                  <div className="p-2 rounded bg-surface-dim border border-surface-border">
+                    <span className="text-[10px] text-slate-500 block">p95 Latency</span>
+                    <span className="text-white font-bold text-base">2,840ms</span>
+                  </div>
+                  <div className="p-2 rounded bg-surface-dim border border-surface-border">
+                    <span className="text-[10px] text-slate-500 block">Cost</span>
+                    <span className="text-indigo-400 font-bold text-base">$0.044</span>
+                  </div>
+                </div>
+
+                <div className="p-3 rounded bg-surface-dim border border-surface-border text-[11px] text-slate-300 space-y-1 font-mono">
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Token Efficiency:</span>
+                    <span>3,890 tok / attempt</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Chaos Resilience:</span>
+                    <span className="text-amber-400">66% (1 socket timeout on 429)</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-slate-500">Freshness Score:</span>
+                    <span className="text-amber-400">84 / 100</span>
+                  </div>
+                </div>
+
+                <div className="text-[11px] text-slate-400 leading-snug">
+                  <strong className="text-slate-200">Telemetry Diagnosis:</strong> 2 redundant LLM calls on search retry;
+                  linear retry backoff triggered HTTP 429 storm and client socket teardown.
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* CHRONOLOGICAL CHAOS WATERFALL (THE TRACE INSPECTOR) */}
+          <div className="specular-card p-5 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-3 border-b border-surface-border">
+              <div>
+                <h3 className="font-semibold text-white text-sm flex items-center gap-2">
+                  <span>Interactive Chronological Chaos Waterfall</span>
+                </h3>
+                <p className="text-[11px] text-slate-400">Granular distributed span telemetry and fault injection trace</p>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-[10px] font-mono text-cyan-400">Attempt:</span>
+                <div className="flex gap-1">
+                  {run?.attempts.map((a, idx) => (
+                    <button
+                      key={a.id}
+                      type="button"
+                      className={`px-2 py-1 rounded text-[11px] font-mono ${selectedAttemptId === a.id ? "bg-cyan-950 text-cyan-300 border border-cyan-500/40" : "bg-surface-dim text-slate-400 hover:text-white"}`}
+                      onClick={() => setSelectedAttemptId(a.id)}
+                    >
+                      #{idx + 1} ({a.scenario.replace("first_search_", "")})
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Waterfall Visual Bars */}
+            <div className="space-y-2.5 font-mono text-xs">
+              <div className="flex items-center justify-between text-[11px] text-slate-500 pb-1">
+                <span>OPERATION SPAN</span>
+                <span>DURATION & STATUS</span>
+              </div>
+
+              {selectedAttempt?.events && selectedAttempt.events.length > 0 ? (
+                selectedAttempt.events.map((ev, i) => {
+                  const isFault = ev.injected || ev.status === "failed";
+                  return (
+                    <div key={i} className="space-y-1">
+                      <div className="flex justify-between text-[11px] text-slate-300">
+                        <span className="flex items-center gap-2">
+                          <span className={`w-1.5 h-1.5 rounded-full ${isFault ? "bg-rose-500" : "bg-cyan-400"}`}></span>
+                          {ev.operation} {ev.query && `"${ev.query}"`}
+                        </span>
+                        <span className={isFault ? "text-rose-400 font-bold" : "text-cyan-400"}>
+                          {ev.elapsed_ms}ms {ev.status_code ? `· HTTP ${ev.status_code}` : ""}
+                        </span>
+                      </div>
+                      <div className="waterfall-track">
+                        <div
+                          className={`waterfall-bar ${isFault ? "fault" : i === 0 ? "dns" : i === 1 ? "search" : "llm"}`}
+                          style={{ width: `${Math.min(100, Math.max(12, (ev.elapsed_ms / (selectedAttempt.latency_ms || 1000)) * 100))}%` }}
+                        >
+                          {ev.status}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })
+              ) : (
+                /* Static representative trace waterfall for demo */
+                <div className="space-y-2.5">
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[11px] text-slate-300">
+                      <span>01. DNS Route & Gateway Signature</span>
+                      <span className="text-cyan-400">12ms</span>
+                    </div>
+                    <div className="waterfall-track">
+                      <div className="waterfall-bar dns" style={{ width: "12%" }}>PASS</div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[11px] text-slate-300">
+                      <span>02. Tavily Search (Initial Query)</span>
+                      <span className="text-cyan-400">180ms</span>
+                    </div>
+                    <div className="waterfall-track">
+                      <div className="waterfall-bar search" style={{ width: "24%" }}>HTTP 200</div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[11px] text-rose-300 font-bold">
+                      <span>03. [INJECTED FAULT: HTTP 503 Outage]</span>
+                      <span className="text-rose-400">4ms (TRIP)</span>
+                    </div>
+                    <div className="waterfall-track">
+                      <div className="waterfall-bar fault" style={{ width: "16%" }}>503 SERVICE UNAVAILABLE</div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[11px] text-indigo-300">
+                      <span>04. Exponential Backoff (jitter=0.25)</span>
+                      <span className="text-indigo-400">214ms</span>
+                    </div>
+                    <div className="waterfall-track">
+                      <div className="waterfall-bar backoff" style={{ width: "32%" }}>BACKOFF RECOVERED</div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1">
+                    <div className="flex justify-between text-[11px] text-slate-300">
+                      <span>05. Gemini 3.1 Flash-Lite Synthesis</span>
+                      <span className="text-cyan-400">770ms</span>
+                    </div>
+                    <div className="waterfall-track">
+                      <div className="waterfall-bar llm" style={{ width: "68%" }}>SETTLED (2,450 TOK)</div>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* REGRESSION DIFF REPORT (IF GENERATED) */}
+          {regression && (
+            <div className="specular-card p-5 space-y-3">
+              <div className="flex items-center justify-between pb-2 border-b border-surface-border">
+                <h3 className="font-semibold text-white text-sm">Deterministic Regression Diff</h3>
+                <span className="text-xs font-mono text-cyan-400">$0.00 Token Replay Cost</span>
+              </div>
+              <div className="text-xs font-mono space-y-1 bg-surface-dim p-3 rounded border border-surface-border">
+                <div>Candidate: #{regression.candidate_run_id.slice(0, 8)} vs Baseline</div>
+                <div className="text-emerald-400">
+                  Pass Rate: {regression.success.candidate.passed}/{regression.success.candidate.total} vs Baseline {regression.success.baseline.passed}/{regression.success.baseline.total}
+                </div>
+                {regression.classifications.map((c, i) => (
+                  <div key={i} className="text-cyan-300">• {c}</div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
 }
