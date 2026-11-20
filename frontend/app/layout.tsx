@@ -22,6 +22,11 @@ export default function Layout({ children }: { children: ReactNode }) {
   return (
     <html lang="en" className="dark">
       <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `try{if(localStorage.getItem('theme')==='light'){document.documentElement.classList.remove('dark')}else{document.documentElement.classList.add('dark')}}catch(e){}`,
+          }}
+        />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link
@@ -33,7 +38,7 @@ export default function Layout({ children }: { children: ReactNode }) {
           rel="stylesheet"
         />
       </head>
-      <body className="bg-[#09090b] text-zinc-100 antialiased font-sans selection:bg-zinc-800 selection:text-white min-h-screen">
+      <body className="bg-[var(--canvas-bg)] text-[var(--text-main)] antialiased font-sans selection:bg-zinc-800 selection:text-white min-h-screen">
         {children}
       </body>
     </html>
