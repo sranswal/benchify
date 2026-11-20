@@ -1,131 +1,170 @@
-# Benchify private deployment
+# Benchify Deployment Guide & Production Runbook
 
-## Hosted incident
+This runbook documents the deployment architecture, configuration, operational procedures, and recovery runbooks for Benchify.
 
-On November 16, 2026, Vercel returned platform-level `NOT_FOUND` for the app, benchmark catalog and manifest at `try-benchify.vercel.app`. The authenticated Vercel CLI could inspect the `sranswal` scope. Its project and alias inventories contained no Benchify target, and the deployment lookup failed. There was no target in the accessible scope whose root, framework, build, environment, or logs could be inspected. GitHub `main` at `b07d6d6` contained only README.md. A Git deployment of that revision lacks the application source. The evidence does not establish when or why the old deployment disappeared, or whether another account owned it. [Vercel NOT_FOUND reference](https://vercel.com/docs/errors/NOT_FOUND)
+---
 
-## Replacement project
+## Architecture & Production Topology
 
-The Vercel project sranswal/benchify-private has been created. Verified settings are Next.js, root directory frontend, Node.js 24.x, npm ci, npm run build, and automatic output directory. Preview and Production both have BENCHIFY_ENV set to production. Vercel deployment protection excludes custom domains, so Benchify's own operator access remains mandatory. The project awaits a Git connection, an approved backend HTTPS origin, the verified frontend origin, and the shared operator token. Establish the new alias from the first Ready deployment. The previous alias still has no verified deployment.
+Benchify employs a decoupled, high-availability architecture separating the edge presentation layer from the durable evaluation and inference gateway layers.
 
-## Render staging deployment
-
-The private frontend and Render API are live. Hosted Chrome core acceptance and live research browser checks passed on November 19. Controlled redeploys preserved attempts. Provider timeouts remain observable, and managed staging restoration remains open. The current URLs, source revisions, protection-aware browser workflow and operational evidence are in the [Render runbook](RENDER.md).
-
-Oracle account provisioning is blocked. The active staging path uses the [Render runbook](RENDER.md), with separate gateway and API Blueprints, private Bifrost networking and Render HTTPS termination. The operator approved a $14.25/month base configuration. Account credit terms and actual resource usage must be verified before promotion. Next.js remains on Vercel.
-
-## OCI deployment alternative
-
-Follow the [OCI VM instructions](OCI_VM.md) and [Bifrost migration guide](BIFROST_MIGRATION.md). The API and its embedded Neon worker run beside Bifrost on one ARM64 VM. The Compose configuration sets the internal gateway origin to http://bifrost:8080/openai. Caddy serves only Benchify API routes over public HTTPS. The gateway has no published ports. The same Vercel proxy, Neon schema, and private operator boundary apply.
-
-Run these probes on the VM before changing any Vercel settings:
-
-    docker compose --env-file deploy/vm.env -f deploy/compose.yaml ps
-    docker compose --env-file deploy/vm.env -f deploy/compose.yaml exec -T benchify-api python - <<'PY'
-    import asyncio, uuid
-    import httpx
-    from benchify.providers import Providers
-    from benchify.workflows import ExcerptCheck
-
-    async def check():
-        async with httpx.AsyncClient(timeout=25, trust_env=False) as client:
-            for url in ("http://127.0.0.1:8000/ready", "http://bifrost:8080/health"):
-                print(url, (await client.get(url)).raise_for_status().status_code)
-            provider = Providers(client, str(uuid.uuid4()))
-            try:
-                await provider.model("Return both fields set to true.", {}, ExcerptCheck)
-            finally:
-                for event in provider.events:
-                    print({key: event.get(key) for key in (
-                        "workflow_id", "client_request_id", "request_id", "status_code", "failure_category",
-                    )})
-    asyncio.run(check())
-    PY
-
-From another network, confirm 8080 and 8000 are unreachable, that HTTPS presents the expected public certificate, and that anonymous catalog access returns 401. The public proxy returns 404 for /health and /ready. Check gateway auth and use the Bifrost dashboard via the documented SSH tunnel. Once the staged backend passes these checks, set the verified HTTPS origin in sranswal/benchify-private and use the same operator token. Keep provider and Neon secrets on the VM. Select a reviewed branch containing the deployment files and run the hosted browser drill below.
-
-## Production topology
-
-| Component | Placement |
-|---|---|
-| Next.js | Vercel from the `frontend` project root. Browser requests use same-origin Next route handlers. |
-| FastAPI and benchmark worker | One always-on Linux container, one Uvicorn process, behind an HTTPS ingress. Keep one active worker process while fixture callbacks depend on in-process state. |
-| Neon | One dedicated staging branch and role, followed by a separate production branch and role after acceptance. Use a TLS connection string from Neon and runtime secret injection. |
-| Bifrost | A separately operated gateway reachable from the API on the private network. Keep admin and log access off public ingress. |
-| Tavily | Direct HTTPS egress from FastAPI. Keys belong only on the API host. |
-
-The Next request enqueues work and returns a run ID. The API process hosts the durable worker, which claims and checkpoints through PostgreSQL. Vercel only serves the frontend and proxies API requests. The live verification and briefing proxy allows 95 seconds, with a 105-second configured function duration. Make sure the selected Vercel project supports this duration. An always-on backend costs more than scaling to zero and currently limits horizontal scaling. It keeps the worker available outside HTTP request lifetimes and keeps the callback state in the process that owns the active attempt. [Vercel function duration](https://vercel.com/docs/functions/configuring-functions/duration)
-
-## Deploy staging
-
-1. Review and publish the full application source to the intended Git branch. Confirm the remote revision includes `frontend/package.json`, its lockfile, `frontend/vercel.json`, `backend/Dockerfile` and both source directories. Keep `.env`, local recordings and credentials out of Git.
-2. On an authorized always-on backend host, allocate one container and a stable HTTPS origin. Build from the repository root with `docker build -t benchify-api:<revision> backend`. Publish the image by immutable revision/digest where the host can pull it. Inject these backend values through the host secret store.
-
-   | API variable | Staging value |
-   |---|---|
-   | `BENCHIFY_ENV` | `production` |
-   | `BENCHIFY_OPERATOR_TOKEN` | Random URL-safe operator token, 32–128 characters. Use the same token in Vercel. |
-   | `BENCHIFY_ALLOW_LOCAL_AGENTS` | `0` or unset |
-   | `DATABASE_URL` | TLS DSN for the isolated Neon staging branch |
-   | `BIFROST_BASE_URL`, `BIFROST_MODEL`, `BIFROST_VIRTUAL_KEY` | Approved gateway origin and inference configuration, with the path expected by the gateway |
-   | `TAVILY_API_KEY` | Staging Tavily credential |
-   | `BENCHIFY_CAPTURE_RETENTION_DAYS` | Approved 1–30 day retention |
-
-   On a Docker VM, run the image with `--restart unless-stopped --stop-timeout 55` and publish `127.0.0.1:8000:8000` for a same-host TLS reverse proxy. Attach it to the private gateway network if Bifrost runs in another container. For a managed container host, configure a fixed active replica, always-available CPU, no request-driven suspension, and at least 55 seconds of termination grace. Set `PORT` if the host requires a different container port. Allow web ingress only on the intended API path, with TLS, request-size and rate limits. Keep health checks private where possible. Probe `/health` for liveness and `/ready` for worker readiness.
-3. Start with Python only. Leave `BENCHIFY_HTTP_AGENT_URL` unset and `BENCHIFY_HTTP_AGENTS` empty. When testing HTTP agents, add exact HTTPS origins to `BENCHIFY_AGENT_ALLOWED_ORIGINS` and expose only the scoped callback path on the explicit HTTPS `BENCHIFY_FIXTURE_ORIGIN`. Keep callback URLs out of access logs. Bifrost and Tavily remain backend-only.
-4. In the **sranswal Vercel scope**, connect the reviewed GitHub branch to benchify-private after adding the staging environment values in step 5. Confirm GitHub authorizes the Vercel integration to access the repository. Set **Root Directory** to `frontend`, **Framework Preset** to **Next.js**, and **Node.js Version** to **24.x**. Use `npm ci` and `npm run build` from the checked-in config. Leave Output Directory at the framework default. Set the staging branch and GitHub integration to the exact reviewed revision. Review build logs and confirm a Ready deployment on that revision. [Vercel project settings](https://vercel.com/docs/project-configuration/general-settings)
-5. Set Vercel's **server-side** staging values before deploying. Use `BENCHIFY_ENV=production`, the shared `BENCHIFY_OPERATOR_TOKEN`, `BENCHIFY_PUBLIC_ORIGIN=https://<staging-web-host>`, and `BENCHIFY_API_URL=https://<staging-api-host>`. Use complete HTTPS origins without paths or credentials. Do not add a generic rewrite that forwards browser authorization. The checked-in Next handlers validate the operator and deliberately forward a Bearer credential over HTTPS. Vercel needs no Neon, Bifrost or Tavily secrets.
-6. Assign the intended staging alias to the verified Ready deployment. Verify the correct URL and operator challenge. If reusing `try-benchify.vercel.app`, verify alias ownership and deployment mapping in the owning scope before assigning it. A deployment protected by an additional Vercel gate must also give the acceptance runner an approved access path.
-7. Verify anonymous requests to the web app, catalog and recording endpoint return 401. Operator browser username is `benchify`. Direct backend callers use the operator token as Bearer. Production `/docs`, `/redoc` and `/openapi.json` are disabled. The edge can expose static brand assets and the manifest. It must protect all private data routes.
-
-## Backend host selection
-
-The production API image is approximately 212 MiB uncompressed. In a disposable PostgreSQL test with a 0.5-vCPU and 512-MiB container limit, the API used 55.17 MiB idle and 67.07 MiB after 15 captured scripted attempts. These are point-in-time measurements. Live provider latency, large concurrent responses, Bifrost resource use, and peak memory were outside this sizing check.
-
-A paid Render Docker web service is a practical starting point for the API alone if it can reach a hosted Bifrost gateway. Choose one always-on instance with at least 0.5 vCPU and 512 MiB, preferably near the staging Neon region. Set the service root to backend, use its Dockerfile and default command, set /ready as the health check, disable auto-deploys, and set a 60-second shutdown window using Render's maxShutdownDelaySeconds setting. Start with the Python agent on staging. Drain the active worker before replacing instances when using in-process HTTP fixture callbacks. Approve the host and plan before provisioning. [Render service configuration](https://render.com/docs/blueprint-spec) · [Render pricing](https://render.com/pricing)
-
-If the existing Bifrost gateway is only reachable on the development machine, provide a hosted gateway first. A dedicated Linux VM can run the API and Bifrost on a private container network behind one TLS ingress, with the API health checks and stop timeout described above. Measure Bifrost before setting capacity. Keep its administrative interfaces private.
-
-## Acceptance
-
-Use a dedicated hosted staging URL and a disposable Neon branch. Inject `BENCHIFY_HOSTED_OPERATOR_TOKEN` into the shell from the secret store. Run from the repository root:
-
-```powershell
-node frontend/tests/browser_acceptance.mjs --hosted=https://<staging-web-host>
-node frontend/tests/browser_acceptance.mjs --hosted=https://<staging-web-host> --exercise --live
+```
+                      +---------------------------------------+
+                      |       Vercel Edge Network             |
+                      |  Next.js 14 Web Application / UI      |
+                      |  - Route Handlers & Operator Gate     |
+                      |  - Static Brand Assets & Reports      |
+                      +-------------------+-------------------+
+                                          |
+                               HTTPS (Operator Token)
+                                          |
+                                          v
+                      +---------------------------------------+
+                      |       Render Web Service (API)        |
+                      |  FastAPI Orchestration Engine         |
+                      |  - Lease-Based Attempt Worker         |
+                      |  - Chaos Injection Matrix             |
+                      |  - Claim Decomposition & Rubrics      |
+                      +-----------+---------------+-----------+
+                                  |               |
+                     Private HTTP |               | TLS / Pooled
+                                  v               v
+    +-------------------------------+   +-----------------------------+
+    |   Render Private Service      |   |   Neon Serverless Postgres  |
+    |   Bifrost LLM Gateway         |   |   - Durable State & Traces  |
+    |   - Virtual Key Routing       |   |   - Lease Tokens & Runs     |
+    |   - Provider Fallback/Retry   |   |   - Offline Replay Bundles  |
+    +---------------+---------------+   +-----------------------------+
+                    |
+              HTTPS |
+                    v
+    +-------------------------------+   +-----------------------------+
+    |   Google Gemini 3.1 Flash     |   |   Tavily Live Search API    |
+    |   Upstream Model Inference    |   |   Primary-Source Retrieval  |
+    +-------------------------------+   +-----------------------------+
 ```
 
-The first check is read-only. The second creates synthetic Northwind runs, downloads a recording, compares replay and saved runs, and exercises credentialed verification and briefing. Chrome only answers the Benchify Basic challenge at the exact configured HTTPS origin. Check the hosted trace for the injected search 503 and document any real provider failure separately. The local build and tests do not count as hosted acceptance.
+| Component | Placement | Technology | Operational Function |
+| :--- | :--- | :--- | :--- |
+| **Web UI** | Vercel Edge | Next.js 14 App Router | Operator dashboard, report generation, and API proxy |
+| **Core Engine** | Render | FastAPI (Docker) | Workflow orchestration, chaos fault injector, and durable worker |
+| **LLM Gateway** | Render | Bifrost (Docker Private) | Upstream LLM proxy, credential isolation, and routing |
+| **State Storage** | Neon | Serverless PostgreSQL | Run persistence, distributed leases, and trace recordings |
+| **Live Search** | SaaS | Tavily Search API | Outbound HTTPS search for temporal fact verification |
 
-## Recovery and rollback
+---
 
-Run the disposable PostgreSQL exercise locally. It never uses the workspace Neon DSN.
+## Configuration & Environment Variables
 
-```powershell
-npm.cmd --prefix frontend run build
-docker build -t benchify-api:milestone-1 backend
-$env:PYTHONPATH = "backend"
-.venv\Scripts\python.exe backend/tests/recovery_drill.py --image benchify-api:milestone-1 --release --browser
+### 1. Backend Core API (Render Web Service)
+
+| Environment Variable | Required | Description | Example / Recommended |
+| :--- | :---: | :--- | :--- |
+| `BENCHIFY_ENV` | Yes | Runtime environment mode | `production` |
+| `BENCHIFY_OPERATOR_TOKEN` | Yes | Shared secret for authenticating edge proxy and CLI requests | `64-character random URL-safe token` |
+| `DATABASE_URL` | Yes | Pooled PostgreSQL TLS connection string | `postgresql://user:pass@ep-xyz-pooler.neon.tech/benchify?sslmode=require` |
+| `BIFROST_BASE_URL` | Yes | Origin of the Bifrost gateway (internal Render address) | `http://benchify-bifrost:8080/openai` |
+| `BIFROST_MODEL` | Yes | Target model identifier | `gemini-2.0-flash` or `gemini-3.1-flash` |
+| `BIFROST_VIRTUAL_KEY` | Yes | Authentication token for Bifrost inference routing | Injected from secret store |
+| `TAVILY_API_KEY` | Yes | API key for live search queries | Injected from secret store |
+| `BENCHIFY_ALLOW_LOCAL_AGENTS` | No | Allow loopback/non-HTTPS external agents (`0` in production) | `0` |
+| `BENCHIFY_CAPTURE_RETENTION_DAYS`| No | Retention period for recorded run traces | `14` |
+| `BENCHIFY_AGENT_ALLOWED_ORIGINS` | No | Comma-separated whitelist of allowed HTTPS agent endpoints | `https://agent.example.com` |
+| `BENCHIFY_FIXTURE_ORIGIN` | No | Base URL exposed for external agents to query callbacks | `https://api.yourdomain.com` |
+
+### 2. Frontend Web Application (Vercel)
+
+| Environment Variable | Required | Description | Example / Recommended |
+| :--- | :---: | :--- | :--- |
+| `BENCHIFY_ENV` | Yes | Production environment identifier | `production` |
+| `BENCHIFY_OPERATOR_TOKEN` | Yes | Matching token for upstream API authentication | Same as backend `BENCHIFY_OPERATOR_TOKEN` |
+| `BENCHIFY_API_URL` | Yes | Public HTTPS URL of the Render API service | `https://benchify-api.onrender.com` |
+| `BENCHIFY_PUBLIC_ORIGIN` | Yes | Public canonical URL of the web UI | `https://try-benchify.vercel.app` |
+
+---
+
+## Deployment Procedures
+
+### Step 1: Database Provisioning (Neon)
+
+1. Create a dedicated project in Neon.
+2. Create separate branches for `staging` and `production`.
+3. Enable connection pooling and copy the pooled connection string (`sslmode=require`).
+4. Schema migrations are applied automatically by the backend worker upon startup.
+
+### Step 2: LLM Gateway Deployment (Bifrost on Render)
+
+1. Deploy Bifrost as a **Private Service** in the same Render region as the API service.
+2. Use the container definition at `deploy/render/bifrost.Dockerfile` and configuration from `deploy/bifrost.config.json`.
+3. Configure the virtual key, upstream model routing (Gemini), and administrative secrets in Render's environment settings.
+4. Keep all administrative ports and dashboards off public ingress; Bifrost should only be accessible via the Render private network.
+
+### Step 3: Backend API Deployment (Render Web Service)
+
+1. Create a new **Web Service** on Render pointing to your repository.
+2. Configure settings:
+   - **Environment**: Docker (Root directory: `backend`, Dockerfile: `Dockerfile`).
+   - **Health Check Path**: `/ready`
+   - **Instance Type**: 0.5+ vCPU, 512+ MiB RAM (always-on, scaling to zero disabled).
+   - **Graceful Shutdown**: Set `maxShutdownDelaySeconds` to `60` to allow running worker attempts to drain.
+3. Populate all required backend environment variables.
+4. Verify deployment liveness:
+   ```bash
+   curl -i https://<your-api-host>/ready
+   # Expected: HTTP 200 {"status": "ready"}
+   ```
+
+### Step 4: Frontend Web App Deployment (Vercel)
+
+1. Connect the repository in Vercel.
+2. Configure settings:
+   - **Framework Preset**: Next.js
+   - **Root Directory**: `frontend`
+   - **Node.js Version**: `20.x` or `24.x`
+   - **Build Command**: `npm run build`
+   - **Install Command**: `npm ci`
+3. Configure frontend environment variables (`BENCHIFY_ENV`, `BENCHIFY_OPERATOR_TOKEN`, `BENCHIFY_API_URL`, `BENCHIFY_PUBLIC_ORIGIN`).
+4. Deploy and verify that the custom domain or production alias is healthy.
+
+---
+
+## Verification & Acceptance Testing
+
+Run automated acceptance tests to verify that the deployed infrastructure behaves correctly under real workloads:
+
+```bash
+# 1. Read-only verification
+node frontend/tests/browser_acceptance.mjs --hosted=https://<your-web-host>
+
+# 2. Comprehensive end-to-end acceptance (synthetic runs, live search & briefings)
+node frontend/tests/browser_acceptance.mjs --hosted=https://<your-web-host> --exercise --live
 ```
 
-The drill tests competing claims, expired-token and stale-writer rejection, preserving completed attempts, worker drain, recording pruning, container probes and termination, PostgreSQL dump and restore, and the execution of a restored pending job. The release smoke hard-restarts the API after a checkpoint. A live lease can take up to 120 seconds to expire. One callback process is still required in hosted operation.
+### Verification Checklist:
+- [ ] Anonymous access to `/api/v1/runs` returns `HTTP 401 Unauthorized`.
+- [ ] Direct backend calls using `Authorization: Bearer <BENCHIFY_OPERATOR_TOKEN>` return `HTTP 200`.
+- [ ] Web UI prompts for operator authentication (HTTP Basic credentials: username `benchify`).
+- [ ] Production disables `/docs`, `/redoc`, and `/openapi.json` Swagger endpoints.
+- [ ] End-to-end benchmark run completes with traces and score breakdown.
+- [ ] Injected HTTP 503 and 429 chaos scenarios properly trigger agent backoff and recovery.
 
-For **Neon managed recovery**, first create an isolated branch with synthetic runs and a role restricted to staging. Record a recovery point after a completed run and a pending job, then create a restore branch from that point within the configured restore window. Keep the original branch intact. Start a separate backend against the restore branch. Verify counts, recording expiry, replay, and pending-job completion, then record recovery time and the recovered timestamp. Optionally repeat a logical dump and restore using a separate destination and restricted PostgreSQL service profiles. Test deletion and lease interruption only on disposable branches. A local PostgreSQL restore does not certify Neon managed recovery. [Neon branch management](https://neon.com/docs/manage/branches)
+---
 
-Drain submissions and attempts before replacing the API. Switch one active backend at a time and require readiness before promoting the frontend alias. If rollback is needed, restore the last validated image and frontend revision with compatible secrets and a verified database branch. Never route traffic to a rollback build that lacks the current access gate. Keep Bifrost logs and callback capabilities out of public ingress and application access logs.
+## Operations, Recovery & Rollbacks
 
-## Recorded validation
+### Worker Drain & Graceful Shutdown
+When terminating or redeploying the backend API container:
+- The worker listens for `SIGTERM` signals.
+- New benchmark queue claims are halted immediately.
+- Active in-progress attempts are given up to 55 seconds to finalize their checkpoints before shutdown.
 
-The production Next.js build passed. Four synthetic server secrets were absent from all 13 browser asset files. Local Chrome passed the catalog, benchmark, refresh, capture download, offline replay and comparison flow against the restored disposable PostgreSQL database. Actual hosted Chrome received HTTP 404 on all three checks.
+### Distributed Lease Recovery
+- All background evaluation jobs rely on a PostgreSQL lease token with a TTL (default: 120 seconds).
+- If a container crashes or is abruptly killed, the expired lease is safely reclaimed by another active worker.
+- Fencing tokens prevent stale writers from corrupting checkpoint state.
 
-The Docker PostgreSQL drill verified one winner across two concurrent lease claimants, rejected expired and replaced leases, drained an active worker and resumed the next position. The hard-restart smoke recovered a real expired lease and passed all six attempts plus repeat execution. The production API container passed readiness, probe and authorization checks, debug-route removal and SIGTERM shutdown.
-
-A separate Neon logical backup and restore passed using two fresh synthetic-only databases on the configured service. A PostgreSQL 18 client dumped the source and restored it to the isolated destination. Two finished attempts, their events, and recordings matched after restore. Offline replay passed and a restored pending job completed. Only the two new test databases were removed. Managed point-in-time restore to an isolated branch is still outstanding.
-
-## Native ARM64 staging handoff, November 19, 2026
-
-The sanitized VM deployment is on the codex/private-hosted-mvp review branch. OCI provisioning has not started. No OCI CLI profile or VM SSH target was available during this check. Native gateway startup, real inference, public HTTPS, hosted browser acceptance, and the isolated staging recovery drill remain unexecuted. The configured local Vercel login returned HTTP 403 for both the user and project API checks, so current project settings and protection could not be revalidated.
-
-Before provisioning, the operator must authorize tenancy and compartment access, choose a home-region A1 shape with 2 OCPUs, 6 GiB RAM and a 50 GB boot volume, and verify the console Always Free indicator and zero-cost estimate across existing tenancy usage. Regional capacity and the actual estimate remain unverified. Obtain approval for any priced alternative. Supply an approved SSH public key and an API DNS name. Configure credentials directly in the VM secret files using the OCI and migration guides. Keep staging Neon access isolated from application data.
-
-Reauthenticate the Vercel CLI in the sranswal scope or connect the Vercel account. After the backend passes the live staging checks, link the GitHub review branch to benchify-private, configure the server-side proxy variables documented above, verify deployment protection, and run hosted acceptance against the assigned Ready URL. A private Git connection and the HTTPS origin are prerequisites for that deployment. Record gateway and worker restart outcomes, recording replay, managed Neon restoration, and the verified cost estimate in this document before marking the milestone complete.
+### Disaster Recovery Runbook
+1. **Neon Point-in-Time Restore**: Restore from a Neon database recovery point to an isolated recovery branch.
+2. **Configuration Verification**: Point a staging API instance to the restored branch to verify run counts, recording integrity, and pending attempt execution.
+3. **Traffic Promotion**: Update `DATABASE_URL` on the primary Render service once verified.
+4. **Service Rollback**: If rolling back code revisions, redeploy the previous tagged Docker image commit. Ensure the rollback build includes the operator authentication gate.

@@ -1,40 +1,166 @@
-# Developer guide
+# Benchify Developer Guide
 
-## First benchmark
+This guide covers local development, architecture overview, testing practices, and how to integrate external autonomous agents with Benchify.
 
-Follow the [local setup](../README.md), start FastAPI and the included Node agent, then run benchify.benchmark_cli with --model-mode scripted --repetitions 1 using PYTHONPATH=backend. Scripted preview requires neither model credentials nor Postgres. Add --persist to queue and poll a saved run with DATABASE_URL configured.
+---
 
-- GET /api/v1/runs/catalog returns agent IDs and task revisions.
-- POST /api/v1/runs/preview and POST /api/v1/runs accept agents, fixture_revision, model_mode, repetitions and scenarios. Preview runs inline and create returns HTTP 202.
-- Poll GET /api/v1/runs/{id} and use POST /api/v1/runs/{id}/rerun to request another execution against available revisions.
-- FastAPI serves current request schemas at /docs. Pin the app version for integrations while the persisted result contract evolves.
+## Prerequisites & Local Setup
 
-## HTTP adapter
+### Requirements
+- **Python**: 3.11 or higher
+- **Node.js**: 20.x or higher (npm 10+)
+- **Git**
 
-Use backend/http-agent.mjs as the working reference. Register a stable ID, name, revision and endpoint in BENCHIFY_HTTP_AGENTS, then restart FastAPI. Optionally configure a per-agent bearer environment variable. Advance the revision when endpoint behavior changes.
+### 1. Clone & Configure
+```bash
+git clone https://github.com/sranswal/benchify.git
+cd benchify
+cp .env.example .env
+```
 
-The runner posts meeting, window and search_url. POST a query string of 1–400 characters to the callback and consume its sources. Expect a one-shot 429 or 503 in matching scenarios. Return findings and questions. Each finding carries claim, status and evidence. The HTTP rubric expects the canonical claim text, correct development date, exact primary excerpt and a meeting question. Optional usage includes input_tokens, output_tokens and cost_usd. Nonlocal endpoints need HTTPS and a reachable callback origin inside the trusted deployment boundary.
+Edit `.env` to configure your development settings:
+```dotenv
+BENCHIFY_ENV=development
+BENCHIFY_ALLOW_LOCAL_AGENTS=1
+BIFROST_BASE_URL=https://generativelanguage.googleapis.com/v1beta/openai
+BIFROST_MODEL=gemini-2.0-flash
+BIFROST_VIRTUAL_KEY=your_gemini_api_key
+TAVILY_API_KEY=your_tavily_api_key
+BENCHIFY_API_URL=http://127.0.0.1:8000
+DATABASE_URL=
+```
+*(Leaving `DATABASE_URL` empty automatically enables fast in-memory execution mode).*
 
-Set BENCHIFY_FIXTURE_DIRECTORY to add fixture JSON. Use the Northwind file as a schema example and keep bytes stable per revision. Recorded fixtures capture dataset evidence. Opt-in recordings can replay the native Python workflow using the actual typed model outputs and search results consumed by Benchify.
+### 2. Start the Backend API (FastAPI)
+```bash
+# Set up Python virtual environment
+python -m venv .venv
 
-## Integration planning
+# Activate on Windows:
+.venv\Scripts\Activate.ps1
+# Or on macOS/Linux:
+# source .venv/bin/activate
 
-The built-in Python workload is native; the runner has no public Python plugin interface yet. Stabilize a typed adapter and persisted schemas before issuing versioned Python and TypeScript SDKs. Extend the existing CLI for headless integration first. A Docker setup should package the single-process API and agent with explicit callback reachability and separate secrets.
+# Install dependencies and start server
+pip install -r backend/requirements.txt
+python -m uvicorn --app-dir backend benchify.main:app --host 127.0.0.1 --port 8000 --reload
+```
+Check health: `http://127.0.0.1:8000/ready`
 
-Run credential-free tests via the README. Point smoke_release.py at a disposable database. Use --restart to test checkpoint recovery, --web for the production proxy, and --live for billable external calls. The proxy smoke is an HTTP test. Real browser acceptance remains an independent milestone.
+### 3. Start the Frontend (Next.js 14)
+In a second terminal:
+```bash
+cd frontend
+npm install
+npm run dev -- --hostname 127.0.0.1 --port 3000
+```
+Open `http://localhost:3000` in your browser.
 
-See [replay, retention and comparison](REPLAY_AND_REGRESSION.md) for the versioned formats, API and operational limits.
+---
 
-## Local HTTP and client access
+## Core API Endpoints
 
-Enable the local Node agent with BENCHIFY_ENV=development and BENCHIFY_ALLOW_LOCAL_AGENTS=1. For public endpoints, configure their exact HTTPS origins and a reachable callback origin. Agent registration is operator configuration, so restart to reload changes. The product catalog exposes the resulting agents and dataset revisions.
+The FastAPI backend exposes RESTful endpoints for discovering fixtures, enqueueing benchmarks, and querying telemetry:
 
-With an operator token configured, use it as a Bearer credential for direct API and CLI access. For a private web deployment, sign in to the browser challenge as benchify. See [deployment](DEPLOYMENT.md) and [security](SECURITY.md).
+| Method | Path | Description |
+| :--- | :--- | :--- |
+| `GET` | `/ready` | Readiness probe (verifies database and worker connectivity) |
+| `GET` | `/health` | Liveness probe |
+| `GET` | `/api/v1/runs/catalog` | Lists available benchmark datasets, agents, and task revisions |
+| `POST` | `/api/v1/runs/preview` | Runs a synchronous, inline benchmark evaluation |
+| `POST` | `/api/v1/runs` | Enqueues an asynchronous, durable evaluation run (returns `HTTP 202`) |
+| `GET` | `/api/v1/runs/{id}` | Retrieves execution state, attempt traces, and rubric scores |
+| `POST` | `/api/v1/runs/{id}/rerun` | Triggers a re-execution of a completed or failed benchmark run |
+| `GET` | `/api/v1/runs/{id}/recording` | Downloads the self-contained JSON offline replay bundle |
 
-## Private hosted staging
+*(Interactive OpenAPI Swagger documentation is available at `http://127.0.0.1:8000/docs` in development mode).*
 
-The current operator frontend is https://benchify-private.vercel.app. Complete Vercel Authentication, then use Basic username benchify and the existing operator token. The API is https://benchify-api-staging.onrender.com and accepts Bearer authentication with the same token. Configure private provider credentials only on Render.
+---
 
-Hosted Chrome acceptance can use BENCHIFY_HOSTED_OPERATOR_TOKEN and, when Vercel protection requires it, BENCHIFY_HOSTED_PROTECTION_BYPASS supplied through the process environment. Keep both values out of shell arguments and logs. The test scopes automation access to the exact frontend origin. Run node frontend/tests/browser_acceptance.mjs --hosted=https://benchify-private.vercel.app --exercise --live from the repository root. The [Render runbook](RENDER.md) contains the tested outcomes, source revisions, costs and remaining operational gates.
+## Integrating Custom Agents (HTTP Adapter Contract)
 
-Run deterministic backend tests from backend/ with python -m unittest discover -s tests -q. Workflow and replay tests isolate their operator-auth settings, so the local real token can remain configured. Provider and hosted tests are separate from this suite.
+Benchify can benchmark any external autonomous agent (built with LangChain, AutoGen, CrewAI, or custom code) through its **HTTP Adapter Protocol**.
+
+### Reference Implementation
+A working Node.js agent implementation is provided at `backend/http-agent.mjs`:
+```bash
+node --env-file=.env backend/http-agent.mjs
+```
+
+### Agent Registration
+Register external agents by setting `BENCHIFY_HTTP_AGENTS` in your `.env`:
+```json
+BENCHIFY_HTTP_AGENTS=[{"id":"my-agent","name":"Production Research Agent","revision":"1.0.0","url":"http://127.0.0.1:8088/task"}]
+```
+
+### Protocol Specification
+1. **Task Dispatch**: Benchify sends a `POST` request to your agent's endpoint with JSON payload:
+   ```json
+   {
+     "meeting": "Northwind Cloud Strategic Review",
+     "window": "2026-11-01 to 2026-11-30",
+     "search_url": "http://127.0.0.1:8000/api/v1/fixtures/callbacks/xyz"
+   }
+   ```
+2. **Tool Search Queries**: The agent makes `POST` requests to `search_url` containing the query string (1–400 characters).
+3. **Chaos Fault Handling**: The callback may inject `HTTP 503` or `HTTP 429` responses based on the active scenario. The agent must handle retries and backoff.
+4. **Structured Agent Response**: The agent returns its findings and execution metadata:
+   ```json
+   {
+     "findings": [
+       {
+         "claim": "Northwind Cloud released Enterprise Gateway v2.4",
+         "status": "supported",
+         "evidence": "Primary excerpt from source..."
+       }
+     ],
+     "questions": [
+       "What is the migration timeline for existing customers?"
+     ],
+     "usage": {
+       "input_tokens": 1250,
+       "output_tokens": 340,
+       "cost_usd": 0.0012
+     }
+   }
+   ```
+
+---
+
+## Command Line Interface (CLI)
+
+Benchify provides a headless CLI for CI/CD pipelines and automated regressions:
+
+```bash
+# Set PYTHONPATH to backend
+$env:PYTHONPATH="backend"   # Windows PowerShell
+# export PYTHONPATH="backend" # Linux/macOS
+
+# Standard benchmark run (3 repetitions across scenarios)
+python -m benchify.benchmark_cli --repetitions 3
+
+# Deterministic scripted mode (Zero token cost, runs offline)
+python -m benchify.benchmark_cli --repetitions 1 --model-mode scripted
+
+# Persistent run saving checkpoints to PostgreSQL with trace capture
+python -m benchify.benchmark_cli --repetitions 2 --persist --capture
+```
+
+---
+
+## Automated Test Suite
+
+Ensure system stability by running the complete test suite:
+
+```bash
+# 1. Run unit and contract tests (30 passing tests)
+$env:PYTHONPATH="backend"
+python -m unittest discover -s backend/tests -v
+
+# 2. Run release smoke test (loopback API, worker restart recovery)
+python backend/tests/smoke_release.py
+
+# 3. Verify frontend production build and types
+cd frontend
+npm run build
+```

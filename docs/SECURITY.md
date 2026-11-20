@@ -34,7 +34,7 @@ Bifrost's config seed requires dashboard and inference authentication, keeps req
 
 ## Render private staging
 
-The gateway is a private service and exposes no public URL. Private networking is shared within the workspace and region. Require dashboard and virtual-key authentication independently. The API uses Render HTTPS and the existing operator gate. Credentials are entered directly into service settings, with only the operator token shared with Vercel. The gateway prepares its data directory before dropping to UID 1000. The disk and its backups contain sensitive encrypted configuration and request metadata. See the [Render runbook](RENDER.md) for rotation and access checks.
+The gateway is a private service and exposes no public URL. Private networking is shared within the workspace and region. Require dashboard and virtual-key authentication independently. The API uses Render HTTPS and the existing operator gate. Credentials are entered directly into service settings, with only the operator token shared with Vercel. The gateway prepares its data directory before dropping to UID 1000. The disk and its backups contain sensitive encrypted configuration and request metadata. See the [deployment guide](DEPLOYMENT.md) for rotation and access checks.
 
 ## Hosted acceptance evidence
 
